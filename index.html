@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor Depósito Inteligente</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- SheetJS para Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF para Remito/Presupuesto -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --brand-primary: #2563eb;
+            --brand-dark: #0f172a;
+            --brand-light: rgba(37, 99, 235, 0.1);
+        }
+        body { background-color: #F8F9FA; color: #333; overflow: hidden; font-family: 'Poppins', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s forwards; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .cargando-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.85); display: flex; align-items: center; justify-content: center; z-index: 20; border-radius: 12px; }
+        .cargando-spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-excel { background-color: #10b981; color: white; transition: 0.2s; }
+        .btn-excel:hover { background-color: #059669; }
+        
+        /* SEGURIDAD: Ocultar elementos admin cuando está bloqueado */
+        body.app-locked .admin-only { display: none !important; }
+        
+        input::-webkit-calendar-picker-indicator { display: none !important; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { 'brand-primary': 'var(--brand-primary)', 'brand-dark': 'var(--brand-dark)', 'brand-light': 'var(--brand-light)', 'brand-bg': '#F8F9FA' }, fontFamily: { 'sans': ['Poppins', 'sans-serif'], 'serif': ['Playfair Display', 'serif'], } } }
+        }
+    </script>
+</head>
+<body class="h-screen flex flex-col md:flex-row">
+
+    <!-- Sidebar -->
+    <aside class="bg-white w-full md:w-64 flex-shrink-0 z-20 flex flex-col h-16 md:h-full border-r border-gray-200 transition-all duration-300 shadow-sm relative">
+        <div class="p-4 md:p-6 flex justify-between items-center md:items-start md:flex-col border-b border-gray-50 md:border-none">
+            <div class="flex flex-col items-center w-full text-center">
+                <div id="sidebar-logo-container" class="h-12 md:h-16 w-auto mb-2 flex items-center justify-center overflow-hidden">
+                    <svg id="default-logo" viewBox="0 0 24 24" class="h-10 md:h-14 w-auto mx-auto" stroke="var(--brand-primary)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    <img id="custom-logo" src="" class="h-full object-contain hidden" alt="Logo">
+                </div>
+                <div class="mt-1 hidden md:block w-full">
+                    <h1 id="sidebar-name" class="text-sm font-bold tracking-widest text-gray-900 uppercase leading-tight truncate text-center">La Juana</h1>
+                </div>
+            </div>
+            <button class="md:hidden text-gray-500 p-2" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+        </div>
+        
+        <nav id="mobile-menu" class="hidden md:flex flex-col flex-grow px-4 pb-6 bg-white absolute md:relative top-16 md:top-0 left-0 w-full md:w-auto z-10 shadow-lg md:shadow-none h-[calc(100vh-4rem)] md:h-auto overflow-y-auto">
+            
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-2 px-4">Mostrador</div>
+            <a href="#" onclick="switchTab('tab-pos', this)" class="tab-link active flex items-center px-4 py-3 text-brand-primary bg-brand-light rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-shopping-cart w-6"></i> Punto de Venta
+            </a>
+            <a href="#" onclick="switchTab('tab-presupuestos', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-file-invoice-dollar w-6"></i> Presupuestos
+            </a>
+            
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-6 px-4">Logística y Caja</div>
+            <a href="#" onclick="switchTab('tab-caja', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-cash-register w-6"></i> Caja Diaria
+            </a>
+            <a href="#" onclick="switchTab('tab-deposito', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-truck-ramp-box w-6"></i> Depósito / Remitos
+            </a>
+            
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-6 px-4">Inventario y Precios</div>
+            <a href="#" onclick="switchTab('tab-stock', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-boxes w-6"></i> Stock y Costos
+            </a>
+            <a href="#" onclick="switchTab('tab-precios', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-tags w-6"></i> Listas de Precios
+            </a>
+
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-6 px-4 admin-only">Administración</div>
+            <a href="#" onclick="switchTab('tab-clientes', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-users w-6"></i> Clientes
+            </a>
+            <a href="#" onclick="switchTab('tab-rentabilidad', this)" class="admin-only tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-chart-pie w-6"></i> Rentabilidad
+            </a>
+            <a href="#" onclick="switchTab('tab-config', this)" class="admin-only tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-cog w-6"></i> Configuración
+            </a>
+
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-6 px-4">Ayuda</div>
+            <a href="#" onclick="switchTab('tab-guia', this)" class="tab-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl font-medium mb-1 transition-colors">
+                <i class="fas fa-book w-6"></i> Guía de Uso
+            </a>
+
+            <!-- Toggle Modo Vendedor/Admin -->
+            <div class="mt-auto pt-4 border-t border-gray-100 hidden md:block">
+                <button id="btn-lock" onclick="toggleLock()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition flex items-center justify-center text-xs shadow-sm">
+                    <i class="fas fa-unlock mr-2"></i> Modo Admin
+                </button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col h-[calc(100vh-4rem)] md:h-screen relative overflow-y-auto bg-brand-bg">
+        <div id="toast-container"></div>
+        <div id="carga-overlay-global" class="cargando-overlay hidden z-[100]">
+            <div class="text-center">
+                <div class="cargando-spinner mx-auto mb-2"></div>
+                <p class="text-sm font-bold text-slate-600" id="carga-overlay-msg">Procesando...</p>
+            </div>
+        </div>
+
+        <div class="p-4 md:p-10 max-w-[1400px] mx-auto w-full">
+
+            <!-- ================= TAB: PUNTO DE VENTA (POS) ================= -->
+            <div id="tab-pos" class="tab-content fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Punto de Venta</h2>
+                        <p class="text-gray-500 text-sm">Armá carritos para crear Presupuestos o cobrar ventas directas.</p>
+                    </div>
+                </div>
+
+                <!-- Selector de Cliente y Vendedor (Arriba) -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mb-6 flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1"><i class="fas fa-user mr-1"></i> Cliente</label>
+                        <select id="pos-cliente" class="w-full border border-gray-300 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary"></select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1"><i class="fas fa-id-badge mr-1"></i> Vendedor</label>
+                        <input type="text" id="pos-vendedor" placeholder="Tu nombre..." class="w-full border border-gray-300 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" required>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-brand-primary/20 mb-8 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-brand-primary text-white text-[10px] font-bold px-4 py-1 rounded-bl-xl tracking-widest">CARRITO DE VENTAS</div>
+                    
+                    <form onsubmit="agregarAlCarrito(event)" class="mt-4 border-b border-gray-200 pb-4 mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                            <div class="md:col-span-2 relative">
+                                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Producto (Buscador)</label>
+                                <div class="relative flex items-center">
+                                    <i class="fas fa-search absolute left-3 text-gray-400"></i>
+                                    <input type="text" id="pos-producto-nombre" list="dl-productos-pos" placeholder="Ej: Cocina, Sillón..." class="w-full border border-gray-200 py-3 pl-9 pr-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" autocomplete="off" oninput="actualizarPrecioPos()" required>
+                                    <datalist id="dl-productos-pos"></datalist>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Lista de Precios</label>
+                                <select id="pos-lista" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" required onchange="actualizarPrecioPos()"></select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Cantidad</label>
+                                <input type="number" id="pos-cantidad" min="1" step="1" value="1" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-center text-black focus:border-brand-primary" required oninput="actualizarPrecioPos()">
+                            </div>
+                            <div>
+                                <button type="submit" class="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold py-3 rounded-xl transition flex items-center justify-center border border-blue-200">
+                                    <i class="fas fa-cart-plus mr-2"></i> Añadir
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div id="pos-carrito-container" class="mb-4 hidden">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center"><i class="fas fa-shopping-basket mr-2"></i> Artículos en Carrito</h4>
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden mb-4">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-gray-100 text-[10px] text-gray-500 uppercase border-b border-gray-200">
+                                    <tr><th class="p-3">Cant.</th><th class="p-3">Producto</th><th class="p-3">Lista Base</th><th class="p-3 text-right">Subtotal</th><th class="p-3 text-center w-10"></th></tr>
+                                </thead>
+                                <tbody id="pos-carrito-tbody" class="divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div class="md:col-span-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1 text-center">Total del Carrito</label>
+                            <div class="bg-white p-3 rounded-xl text-center border border-gray-300 shadow-inner">
+                                <span class="text-xl font-bold text-green-600" id="pos-total-preview">$0</span>
+                            </div>
+                        </div>
+                        <div class="md:col-span-1 mt-4 md:mt-0">
+                            <button onclick="guardarPresupuesto()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-md hover:bg-indigo-700 transition flex items-center justify-center">
+                                <i class="fas fa-file-invoice mr-2"></i> Crear Presupuesto
+                            </button>
+                        </div>
+                        <div class="md:col-span-1 mt-2 md:mt-0">
+                            <button onclick="abrirModalCobroPos()" class="w-full bg-brand-primary text-white font-bold py-4 rounded-xl shadow-md hover:bg-blue-700 transition flex items-center justify-center">
+                                <i class="fas fa-money-bill-wave mr-2"></i> Cobrar Directo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB: PRESUPUESTOS ================= -->
+            <div id="tab-presupuestos" class="tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Presupuestos Pendientes</h2>
+                        <p class="text-gray-500 text-sm">Cotizaciones guardadas a la espera de cobro. Al cobrar, se descontará el stock.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                <th class="py-4 px-4 w-24">Fecha</th>
+                                <th class="py-4 px-4">Cliente / Detalle</th>
+                                <th class="py-4 px-4 text-right">Total</th>
+                                <th class="py-4 px-4 text-center w-48">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-presupuestos-tabla" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ================= TAB: CAJA DIARIA ================= -->
+            <div id="tab-caja" class="tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Caja Diaria</h2>
+                        <p class="text-gray-500 text-sm">Control de ingresos y egresos según medio de pago.</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                        <div class="w-full md:w-auto bg-white border border-gray-200 rounded-lg flex items-center px-3 shadow-sm py-3 md:py-0 h-10">
+                            <i class="far fa-calendar-alt text-gray-400 mr-2"></i>
+                            <input type="date" id="fecha-caja" class="w-full h-full border-none outline-none bg-transparent font-bold text-gray-900 text-sm" onchange="renderCaja()">
+                        </div>
+                        <button onclick="exportarCajaExcel()" class="admin-only btn-excel font-bold px-4 py-2 rounded-lg shadow-sm flex items-center justify-center text-sm h-10">
+                            <i class="fas fa-file-excel mr-2"></i> Exportar Cierres
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-only grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-l-4 border-l-green-500 border-gray-100">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">EFECTIVO FÍSICO</p>
+                        <h3 class="text-2xl font-bold text-green-600" id="caja-tot-efectivo">$ 0</h3>
+                        <p class="text-[10px] text-gray-400 mt-1">Billetes a rendir</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-l-4 border-l-blue-500 border-gray-100">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">MERCADO PAGO</p>
+                        <h3 class="text-2xl font-bold text-blue-600" id="caja-tot-mp">$ 0</h3>
+                        <p class="text-[10px] text-gray-400 mt-1">Dinero en cuenta MP</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-l-4 border-l-purple-500 border-gray-100">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">TRANSFERENCIA</p>
+                        <h3 class="text-2xl font-bold text-purple-600" id="caja-tot-transf">$ 0</h3>
+                        <p class="text-[10px] text-gray-400 mt-1">Dinero en Banco</p>
+                    </div>
+                    <div class="bg-brand-dark p-5 rounded-2xl shadow-lg text-white">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">TOTAL VENTAS DÍA</p>
+                        <h3 class="text-3xl font-bold" id="caja-tot-global">$ 0</h3>
+                        <p class="text-[10px] text-gray-300 mt-1" id="caja-tot-egresos">Egresos totales: $0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-6 flex flex-wrap md:flex-nowrap gap-3 items-center">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-widest w-full md:w-auto md:pr-4 border-b md:border-b-0 md:border-r border-gray-200 pb-2 md:pb-0 mb-2 md:mb-0">Movimiento<br>Manual</span>
+                    <input type="text" id="mov-detalle" placeholder="Detalle (Ej: Insumos de limpieza)" class="flex-grow border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none bg-gray-50 text-black font-bold">
+                    <select id="mov-metodo" class="w-full md:w-40 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 text-black font-bold">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Mercado Pago">Mercado Pago</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                    <div class="relative w-full md:w-40 flex-shrink-0">
+                        <span class="absolute left-3 top-2 text-gray-500 font-bold">$</span>
+                        <input type="number" id="mov-monto" placeholder="0" class="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2 text-sm outline-none font-bold bg-gray-50 text-black">
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto flex-shrink-0">
+                        <button onclick="guardarMovimiento('ingreso')" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow-sm">+ Ingreso</button>
+                        <button onclick="guardarMovimiento('gasto')" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow-sm">- Gasto</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                <th class="py-4 px-4 w-16">Hora</th>
+                                <th class="py-4 px-4 w-20">Tipo</th>
+                                <th class="py-4 px-4">Concepto / Producto</th>
+                                <th class="py-4 px-4 text-right">Monto</th>
+                                <th class="py-4 px-4 text-center w-16">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-caja-tabla" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ================= TAB: DEPOSITO Y REMITOS ================= -->
+            <div id="tab-deposito" class="tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Depósito / Entregas</h2>
+                        <p class="text-gray-500 text-sm">Listado de ventas abonadas listas para armar e imprimir remito.</p>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-lg flex items-center px-3 shadow-sm h-10 w-full md:w-auto">
+                        <i class="far fa-calendar-alt text-gray-400 mr-2"></i>
+                        <input type="date" id="fecha-deposito" class="w-full h-full border-none outline-none bg-transparent font-bold text-gray-900 text-sm" onchange="renderEntregas()">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                <th class="py-4 px-4 w-24">Hora</th>
+                                <th class="py-4 px-4">Cliente</th>
+                                <th class="py-4 px-4">Mercadería a Entregar</th>
+                                <th class="py-4 px-4 text-center w-32">Estado</th>
+                                <th class="py-4 px-4 text-center w-40">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-entregas-tabla" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ================= TAB: STOCK Y COSTOS ================= -->
+            <div id="tab-stock" class="tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Stock y Costos <span class="text-sm font-normal text-gray-500 admin-only">(Sin IVA)</span></h2>
+                        <p class="text-gray-500 text-sm">Gestioná tu inventario mediante carga manual o subida de Excel.</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                        <button onclick="descargarPlantilla('stock')" class="admin-only bg-blue-50 text-blue-700 border border-blue-200 font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm hover:bg-blue-100 transition">
+                            <i class="fas fa-download mr-2"></i> Plantilla
+                        </button>
+                        <label class="admin-only btn-excel font-bold px-4 py-2.5 rounded-xl shadow-md flex items-center justify-center text-sm cursor-pointer hover:bg-emerald-600 w-full md:w-auto transition">
+                            <i class="fas fa-file-import mr-2"></i> Excel
+                            <input type="file" accept=".xlsx, .xls" class="hidden" onchange="importarExcel('stock', event)">
+                        </label>
+                        <button onclick="vaciarDatosMasivos('stock')" class="admin-only bg-red-50 text-red-600 border border-red-200 font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm hover:bg-red-100 transition">
+                            <i class="fas fa-trash-alt mr-2"></i> Borrar Todo
+                        </button>
+                        <button onclick="abrirModalStock()" class="admin-only w-full md:w-auto bg-brand-dark hover:opacity-90 text-white px-5 py-2.5 rounded-xl font-bold shadow-md transition flex justify-center items-center text-sm">
+                            <i class="fas fa-plus mr-2"></i> Artículo
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-lg"><i class="fas fa-boxes"></i></div>
+                        <div><p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Artículos</p><h3 class="text-2xl font-bold text-gray-900 leading-none" id="stat-stock-items">0</h3></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-lg"><i class="fas fa-layer-group"></i></div>
+                        <div><p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Unidades</p><h3 class="text-2xl font-bold text-gray-900 leading-none" id="stat-stock-unidades">0</h3></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div><p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sin Stock</p><h3 class="text-2xl font-bold text-gray-900 leading-none" id="stat-stock-alerta">0</h3></div>
+                    </div>
+                    <div class="admin-only bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-lg"><i class="fas fa-dollar-sign"></i></div>
+                        <div><p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Costo Capital</p><h3 class="text-xl font-bold text-gray-900 leading-none" id="stat-stock-capital">$0</h3></div>
+                    </div>
+                </div>
+
+                <div class="relative bg-white rounded-xl shadow-sm border border-gray-200 flex items-center mb-6">
+                    <i class="fas fa-search absolute left-4 text-gray-500"></i>
+                    <input type="text" id="buscador-stock" placeholder="Buscar producto por nombre..." onkeyup="renderStock()" class="w-full pl-12 pr-4 py-3 border-none bg-transparent outline-none font-bold text-gray-900">
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto pb-10">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                <th class="py-4 px-4 min-w-[250px]">Producto</th>
+                                <th class="admin-only py-4 px-4">Costo Unitario</th>
+                                <th class="py-4 px-4 text-center">Unidades Disp.</th>
+                                <th class="admin-only py-4 px-4 text-center w-24">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-stock-tabla" class="divide-y divide-gray-100 text-sm">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ================= TAB: LISTAS DE PRECIOS ================= -->
+            <div id="tab-precios" class="tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Listas de Precios</h2>
+                        <p class="text-gray-500 text-sm">Configurá el porcentaje de Remarque y el Costo Variable de cada lista.</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                        <button onclick="exportarPreciosExcel()" class="admin-only btn-excel font-bold px-4 py-2.5 rounded-xl shadow-md flex items-center justify-center text-sm hover:bg-emerald-600 transition">
+                            <i class="fas fa-file-excel mr-2"></i> Exportar a Excel
+                        </button>
+                        <button onclick="vaciarDatosMasivos('precios')" class="admin-only bg-red-50 text-red-600 border border-red-200 font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm hover:bg-red-100 transition">
+                            <i class="fas fa-trash-alt mr-2"></i> Borrar Listas
+                        </button>
+                        <button onclick="abrirModalLista()" class="admin-only w-full md:w-auto bg-brand-primary text-white px-5 py-3 md:py-2.5 rounded-xl font-bold shadow-md hover:bg-blue-700 transition flex justify-center items-center text-sm">
+                            <i class="fas fa-plus mr-2"></i> Nueva Lista
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr id="thead-precios" class="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-widest align-bottom">
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-precios" class="divide-y divide-gray-100 text-sm">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ================= TAB: CLIENTES ================= -->
+            <div id="tab-clientes" class="tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Base de Clientes</h2>
+                        <p class="text-gray-500 text-sm">Directorio, cargas masivas e historial de compras.</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                        <button onclick="descargarPlantilla('clientes')" class="admin-only bg-blue-50 text-blue-700 border border-blue-200 font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm hover:bg-blue-100 transition">
+                            <i class="fas fa-download mr-2"></i> Plantilla
+                        </button>
+                        <label class="admin-only btn-excel font-bold px-4 py-2.5 rounded-xl shadow-md flex items-center justify-center text-sm cursor-pointer hover:bg-emerald-600 w-full md:w-auto transition">
+                            <i class="fas fa-file-import mr-2"></i> Excel
+                            <input type="file" accept=".xlsx, .xls" class="hidden" onchange="importarExcel('clientes', event)">
+                        </label>
+                        <button onclick="vaciarDatosMasivos('clientes')" class="admin-only bg-red-50 text-red-600 border border-red-200 font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm hover:bg-red-100 transition">
+                            <i class="fas fa-trash-alt mr-2"></i> Borrar Todo
+                        </button>
+                        <button onclick="abrirModalCliente()" class="w-full md:w-auto bg-brand-dark hover:opacity-90 text-white px-5 py-2.5 rounded-xl font-bold shadow-md transition flex justify-center items-center text-sm">
+                            <i class="fas fa-plus mr-2"></i> Nuevo Cliente
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative bg-white rounded-xl shadow-sm border border-gray-200 flex items-center mb-6">
+                    <i class="fas fa-search absolute left-4 text-gray-500"></i>
+                    <input type="text" id="buscador-clientes" placeholder="Buscar cliente por nombre..." onkeyup="renderClientes()" class="w-full pl-12 pr-4 py-3 border-none bg-transparent outline-none font-bold text-gray-900">
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                <th class="py-4 px-4">Nombre</th>
+                                <th class="py-4 px-4">Teléfono</th>
+                                <th class="py-4 px-4">Tipo</th>
+                                <th class="py-4 px-4 text-center w-40">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-clientes-tabla" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ================= TAB: RENTABILIDAD Y GASTOS ================= -->
+            <div id="tab-rentabilidad" class="admin-only tab-content hidden fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-1">Rentabilidad General</h2>
+                        <p class="text-gray-500 text-sm">El tablero definitivo. ¿Con cuánto de la facturación nos quedamos en el bolsillo?</p>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-xl flex items-center px-4 shadow-sm w-full md:w-auto py-3 md:py-0 h-10">
+                        <i class="fas fa-filter text-gray-500 mr-2"></i>
+                        <input type="month" id="filtro-mes-rentabilidad" class="w-full h-full border-none outline-none bg-transparent font-bold text-gray-900" onchange="renderRentabilidad()">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Tarjetas Financieras -->
+                    <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 relative">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">1. VENTAS TOTALES</p>
+                            <h3 class="text-2xl font-bold text-green-600" id="rent-ingresos">$ 0</h3>
+                            <p class="text-[10px] text-gray-400 mt-1">Ingresos brutos sin IVA</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 relative">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">2. COSTO DIRECTO (CMV)</p>
+                            <h3 class="text-2xl font-bold text-orange-500" id="rent-costos">$ 0</h3>
+                            <p class="text-[10px] text-gray-400 mt-1">Costo de la mercadería vendida</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 relative">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">3. COSTOS VARIABLES (IIBB, Comisiones)</p>
+                            <h3 class="text-2xl font-bold text-red-500" id="rent-gastos-variables">$ 0</h3>
+                            <p class="text-[10px] text-gray-400 mt-1">Impuestos y pasarelas de la venta</p>
+                        </div>
+                        <div class="bg-blue-50 p-5 rounded-2xl shadow-inner border border-blue-200 relative">
+                            <p class="text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-1">4. MARGEN DE CONTRIBUCIÓN</p>
+                            <h3 class="text-2xl font-bold text-blue-700" id="rent-contribucion">$ 0</h3>
+                            <p class="text-[10px] text-blue-600 mt-1">Plata disponible para pagar fijos</p>
+                        </div>
+                        
+                        <!-- Resultado Neto -->
+                        <div id="rent-card-neta" class="md:col-span-2 bg-brand-dark p-6 rounded-2xl shadow-xl relative text-white transition-colors mt-2">
+                            <p class="text-[10px] font-bold text-white opacity-90 uppercase tracking-widest mb-1" id="rent-neta-label">RESULTADO NETO LIMPIO</p>
+                            <div class="flex items-end gap-4">
+                                <h3 class="text-4xl font-bold" id="rent-neta">$ 0</h3>
+                                <p class="text-sm opacity-90 font-bold bg-black/20 px-2 py-1 rounded" id="rent-margen">Margen Real: 0%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Lateral de Gastos Fijos -->
+                    <div class="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col h-[450px]">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-bold text-slate-900 flex items-center"><i class="fas fa-building text-slate-500 mr-2"></i> 5. Gastos Fijos</h3>
+                            <button onclick="vaciarDatosMasivos('gastos')" class="text-xs text-red-500 hover:text-red-700"><i class="fas fa-trash"></i> Vaciar</button>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4">Sueldos, alquiler, luz, etc.</p>
+                        
+                        <div class="flex gap-2 mb-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                            <input type="text" id="gf-concepto" placeholder="Ej: Alquiler..." class="flex-grow border-none bg-transparent outline-none text-sm px-2 text-black font-bold">
+                            <input type="number" id="gf-monto" placeholder="$" class="w-32 min-w-[100px] border-none bg-slate-100 rounded-lg outline-none text-sm px-2 font-bold text-center text-black">
+                            <button onclick="guardarGastoFijo()" class="bg-brand-primary text-white w-8 h-8 rounded-lg font-bold hover:bg-blue-700 transition flex-shrink-0">+</button>
+                        </div>
+                        
+                        <div class="flex-grow overflow-y-auto space-y-2 pr-2" id="lista-gastos-fijos">
+                            <!-- Lista generada -->
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-slate-300 flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Total Fijos</span>
+                            <span class="font-bold text-xl text-slate-900" id="rent-total-fijos-lbl">$0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB: CONFIGURACIÓN ================= -->
+            <div id="tab-config" class="admin-only tab-content hidden fade-in">
+                <div class="max-w-2xl mx-auto space-y-6">
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 md:p-8">
+                        <h2 class="text-xl font-serif font-bold text-gray-900 mb-1">Personalización y Seguridad</h2>
+                        <p class="text-gray-500 text-sm mb-6">Adaptá el sistema y protegé tu información sensible.</p>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Nombre de la Empresa</label>
+                                <input type="text" id="conf-empresa-nombre" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" placeholder="Ej: La Juana">
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Logo del Menú Lateral</label>
+                                <input type="file" accept="image/*" onchange="procesarLogoUpload(event)" class="w-full text-xs mb-2">
+                                <div class="h-16 flex items-center justify-center bg-white rounded-lg border border-gray-200 overflow-hidden mt-2 p-2">
+                                    <img id="preview-conf-logo" class="max-h-full object-contain hidden" alt="Vista previa">
+                                    <span id="preview-conf-logo-placeholder" class="text-xs text-gray-400">Sin logo cargado</span>
+                                </div>
+                                <button onclick="borrarLogo()" class="text-xs text-red-500 mt-2 font-bold hidden" id="btn-borrar-logo"><i class="fas fa-trash"></i> Quitar Logo</button>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-4">
+                                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1"><i class="fas fa-key"></i> PIN de Seguridad (Modo Admin)</label>
+                                <input type="password" id="conf-pin" placeholder="Ej: 1234 (Dejar vacío para desactivar)" class="w-full border border-gray-200 p-3 rounded-xl bg-white outline-none text-sm font-bold text-center tracking-widest text-black focus:border-brand-primary">
+                                <p class="text-[11px] text-gray-500 mt-2 leading-tight">Si configurás un PIN, podrás bloquear la app en "Modo Empleado" para que los vendedores no vean costos, rentabilidad ni puedan borrar datos masivos.</p>
+                            </div>
+                        </div>
+                        <button onclick="guardarConfiguracion()" class="w-full bg-brand-primary text-white py-3 mt-6 rounded-xl font-bold shadow-md hover:bg-blue-700 transition">Guardar Cambios</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB: GUÍA DE USO ================= -->
+            <div id="tab-guia" class="tab-content hidden fade-in">
+                <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-200 p-8 md:p-12 overflow-y-auto" style="max-height: calc(100vh - 8rem);">
+                    <h2 class="text-3xl md:text-4xl font-serif font-bold text-brand-primary mb-2 text-center">Manual de Usuario</h2>
+                    <p class="text-gray-500 text-center mb-10 text-sm md:text-base">Gestor Depósito Inteligente y Rentabilidad Real</p>
+
+                    <div class="space-y-8 text-gray-700 leading-relaxed text-sm md:text-base">
+                        <p>Este manual explica paso a paso cómo utilizar cada módulo del sistema y detalla la lógica detrás de los cálculos de precios, costos variables y la rentabilidad real del negocio.</p>
+
+                        <!-- Section 1 -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2 text-brand-primary">1. Módulo: Stock y Costos</h3>
+                            <p class="mb-3">Este módulo es el cimiento del sistema. Aquí se registran todos los artículos del depósito. Podés cargar los productos de a uno de forma manual o subir un archivo Excel completo descargando primero la plantilla base. El sistema tiene la inteligencia para reconocer las columnas automáticamente, pero siempre es mejor usar la plantilla.</p>
+                            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-4 text-red-900">
+                                <strong class="font-black text-[11px] uppercase tracking-widest block mb-1">Regla de oro para los costos:</strong>
+                                Es fundamental que todos los <strong>Costos Unitarios</strong> se carguen <strong>SIN IVA</strong> (si la empresa es Responsable Inscripto). El IVA no es dinero de la empresa, es un impuesto que se recauda para la entidad fiscal (ARCA). Si cargás los costos con IVA, el cálculo de rentabilidad de tu empresa será completamente irreal.
+                            </div>
+                            <ul class="list-disc pl-5 space-y-2">
+                                <li><strong>Control Físico:</strong> Visualizá rápidamente qué productos están agotados (en rojo) o por quedarse sin stock.</li>
+                                <li><strong>Costo Capital:</strong> El sistema calcula cuánta plata hay inmovilizada en mercadería basándose en la cantidad de unidades por el costo unitario.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Section 2 -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2 text-brand-primary">2. Módulo: Listas de Precios y Lógica de Márgenes</h3>
+                            <p class="mb-3">Aquí configurás a qué precio vas a vender. El sistema abandona la vieja práctica de "poner precios a ojo" y utiliza una fórmula de cálculo automático. Para cada lista de precio (Ej: "Mercado Libre", "Mayorista"), tenés que definir dos porcentajes:</p>
+                            <ol class="list-decimal pl-5 space-y-2 mb-4 font-bold">
+                                <li>Remarque al Costo (%): <span class="font-normal">Es el porcentaje que le sumás a tu Costo Base para formar el Precio de Venta.</span></li>
+                                <li>Costo Variable de Lista (%): <span class="font-normal">¡El gran olvidado! Aquí debés incluir las comisiones de la plataforma y los impuestos sobre estas ventas como Ingresos Brutos y otros costos financieros. Si tenés 3% de IIBB y 3,6% de comisión, el total sería 6,6%.</span></li>
+                            </ol>
+                            <div class="bg-blue-50 border-l-4 border-brand-primary p-4 rounded-r-lg mb-4 text-blue-900">
+                                <strong class="font-black text-[11px] uppercase tracking-widest block mb-1">El mito del porcentaje de ganancia:</strong>
+                                Muchos emprendedores creen que si le agregan un 40% al costo, su ganancia es del 40%. <strong>Esto es un error grave</strong>. La ganancia se mide sobre el precio de venta final, no sobre el costo.
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 p-4 rounded-xl mb-4 font-mono text-sm">
+                                <strong class="text-gray-900 font-sans">Ejemplo de la lógica correcta:</strong><br>
+                                - Costo del producto (sin IVA): $10.000<br>
+                                - Remarque aplicado: 40%<br>
+                                - Precio de Venta: $14.000<br>
+                                - Cálculo engañoso: $14.000 - $10.000 = $4.000 (Parece que ganás 40%)<br><br>
+                                <strong class="text-gray-900 font-sans">Cálculo Real que hace el sistema:</strong><br>
+                                Si dividimos esos $4.000 de ganancia entre los $14.000 del precio de venta, nos da un <strong class="text-brand-primary">28,5%</strong>. Esto es lo que estás ganando en realidad, no un 40%.<br>
+                                A esto, el sistema le va a restar tus <strong>Costos Variables</strong> (ese 6,6% del ejemplo anterior). Esa diferencia es tu <strong>Contribución</strong>, que es lo que te sirve para cubrir los costos fijos.
+                            </div>
+                        </div>
+
+                        <!-- Section 3 -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2 text-brand-primary">3. Módulo: Operaciones (Flujo de Venta)</h3>
+                            <p class="mb-3">Para respetar el flujo real del local, la venta se divide en pasos controlados, registrando siempre quién generó la operación:</p>
+                            <ol class="list-decimal pl-5 space-y-2 mb-4">
+                                <li><strong>Punto de Venta / Presupuestos:</strong> Lo primero es seleccionar el <strong>Cliente</strong> y el <strong>Vendedor</strong> en la parte superior. El sistema recordará tu nombre de vendedor para la próxima venta automáticamente. Luego se arma el carrito buscando los artículos y se selecciona "Crear Presupuesto". El presupuesto genera un PDF (con el nombre del vendedor impreso) y queda guardado en estado Pendiente, sin descontar stock. También se puede usar "Cobrar Directo" para agilizar ventas rápidas de mostrador.</li>
+                                <li><strong>Cobro (Caja):</strong> Cuando el cliente abona, el encargado de caja selecciona "Cobrar" en el presupuesto. En este momento se descuenta el stock real y el dinero ingresa al cierre diario separado por medio de pago, dejando registrado quién fue el vendedor que concretó la operación para facilitar el cálculo de comisiones.</li>
+                                <li><strong>Depósito / Remitos:</strong> Una vez cobrada, la operación aparece en la pestaña de Depósito. El personal del depósito visualiza qué mercadería ya está pagada y lista para salir, imprimiendo el Remito oficial de entrega (que ahora también incluye al vendedor responsable de la venta).</li>
+                            </ol>
+                            <p><strong>Desglose de Caja:</strong> La caja separa el balance del día en tres grandes grupos para que sepas exactamente dónde está la plata: <strong>Efectivo Físico</strong> (billetes a contar), <strong>Mercado Pago</strong> y <strong>Transferencias</strong>.</p>
+                        </div>
+
+                        <!-- Section 4 -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2 text-brand-primary">4. Módulo: Rentabilidad General</h3>
+                            <p class="mb-3">Es el tablero definitivo. A fin de mes, esto te dirá si la estructura está comiendo tu ganancia o si realmente ganaste plata.</p>
+                            <ul class="list-disc pl-5 space-y-2">
+                                <li><strong>1. Ventas Totales:</strong> Suma de los ingresos brutos del mes (sin IVA).</li>
+                                <li><strong>2. Costo Directo (CMV):</strong> Los costos variables que NO son las compras del mes, sino lo que te costó comprar *específicamente* los artículos que vendiste este mes.</li>
+                                <li><strong>3. Costos Variables:</strong> Comisiones e impuestos (IIBB, etc.) de las ventas generadas.</li>
+                                <li><strong>4. Margen de Contribución:</strong> La plata que "sobra" de las ventas para hacer frente a los fijos.</li>
+                                <li><strong>5. Gastos Fijos:</strong> Sueldos (incluyendo el tuyo como dueño), alquiler, luz, cargas sociales. Se cargan manualmente con el botón "+".</li>
+                                <li><strong>RESULTADO NETO:</strong> Si el número final es verde, es tu ganancia real. Si es rojo, estás operando a pérdida.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Section 5 -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2 text-brand-primary">5. Módulo: Base de Clientes</h3>
+                            <p>Directorio de compradores. Al cobrar un presupuesto asignado a un cliente, el sistema arma un <strong>Historial de Compras</strong>. Podés ver las fechas, qué llevó y cuánta plata lleva gastada en total. También permite subida masiva vía Excel.</p>
+                        </div>
+
+                        <!-- Section 6 -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2 text-brand-primary">6. Módulo: Configuración</h3>
+                            <p>Un espacio para colocar el nombre de la empresa, subir el logo y establecer el PIN de seguridad. Estos cambios se guardan en el navegador y se reflejan en toda la aplicación.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ================= MODALES ================= -->
+    <div id="modal-confirm" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden text-center p-6 fade-in">
+            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">¿Estás seguro/a?</h3>
+            <p id="confirm-msg" class="text-sm text-gray-800 mb-6 font-medium">Esta acción no se puede deshacer.</p>
+            <div class="flex gap-3">
+                <button onclick="cerrarModal('modal-confirm')" class="flex-1 bg-gray-100 text-gray-900 py-3 rounded-xl font-bold hover:bg-gray-200 transition">Cancelar</button>
+                <button id="btn-confirmar-accion" class="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition shadow-sm">Sí, confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal PIN -->
+    <div id="modal-pin" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden text-center p-8 fade-in">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fas fa-lock"></i></div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Modo Admin</h3>
+            <p class="text-sm text-gray-600 mb-6">Ingresá tu PIN para desbloquear el sistema completo.</p>
+            <input type="password" id="input-pin-unlock" maxlength="6" class="w-full text-center text-4xl tracking-[0.5em] border border-gray-300 rounded-2xl py-4 mb-6 outline-none focus:border-brand-primary bg-gray-50 font-bold">
+            <div class="flex gap-3">
+                <button onclick="cerrarModal('modal-pin')" class="flex-1 bg-gray-100 text-gray-900 py-3 rounded-xl font-bold hover:bg-gray-200 transition">Cancelar</button>
+                <button onclick="verificarPin()" class="flex-1 bg-brand-primary text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm">Desbloquear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cobro Presupuesto -->
+    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden fade-in">
+            <div class="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="text-xl font-serif font-bold text-gray-900">Cobrar Presupuesto</h3>
+                <button onclick="cerrarModal('modal-cobro')" class="text-gray-500 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="cobro-presupuesto-id">
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center mb-4">
+                    <p class="text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-1">A Cobrar</p>
+                    <h3 class="text-3xl font-bold text-brand-primary" id="cobro-monto-total">$0</h3>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Medio de Pago</label>
+                    <select id="cobro-metodo" class="w-full border border-gray-300 p-3 rounded-xl bg-white outline-none text-sm font-bold text-black focus:border-brand-primary">
+                        <option value="Efectivo">💵 Efectivo (Billetes)</option>
+                        <option value="Mercado Pago">📱 Mercado Pago</option>
+                        <option value="Transferencia">🏦 Transferencia</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+                <button onclick="confirmarCobroPresupuesto()" class="w-full bg-green-500 text-white font-bold py-3 rounded-xl shadow-md hover:bg-green-600 transition flex items-center justify-center">
+                    <i class="fas fa-check-circle mr-2"></i> Confirmar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Stock -->
+    <div id="modal-stock" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden fade-in">
+            <div class="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="text-xl font-serif font-bold text-gray-900" id="modal-stock-title">Artículo de Inventario</h3>
+                <button onclick="cerrarModal('modal-stock')" class="text-gray-500 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="stock-id">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Nombre / Descripción</label>
+                    <input type="text" id="stock-nombre" placeholder="Ej: Sillón 3 Cuerpos" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" required>
+                </div>
+                <div class="admin-only">
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Costo Unitario (Sin IVA) ($)</label>
+                    <input type="number" id="stock-costo" placeholder="0" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary">
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                        <label class="text-[10px] font-bold text-gray-600 uppercase tracking-widest block mb-1 text-center">Stock Físico</label>
+                        <input type="number" id="stock-cantidad" class="w-full bg-transparent outline-none font-bold text-2xl text-center text-gray-900" required>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+                <button onclick="guardarStock()" class="bg-brand-dark text-white px-8 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition w-full">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Lista de Precio -->
+    <div id="modal-lista" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden fade-in">
+            <div class="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="text-xl font-serif font-bold text-gray-900" id="modal-lista-title">Lista de Precios</h3>
+                <button onclick="cerrarModal('modal-lista')" class="text-gray-500 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="lista-id">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Nombre de la Lista</label>
+                    <input type="text" id="lista-nombre" placeholder="Ej: Mercado Libre Premium" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                        <label class="text-[10px] font-bold text-blue-800 uppercase tracking-widest block mb-1">Remarque al Costo (%)</label>
+                        <input type="number" step="0.1" id="lista-margen" placeholder="Ej: 60" class="w-full border border-blue-200 p-2 rounded-lg bg-white outline-none text-sm font-bold text-black text-center focus:border-brand-primary" required>
+                        <p class="text-[9px] text-blue-600 mt-1 leading-tight">Es lo que le sumás al costo base para formar el Precio de Venta.</p>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-xl border border-red-100">
+                        <label class="text-[10px] font-bold text-red-800 uppercase tracking-widest block mb-1">Costo Var. de Lista (%)</label>
+                        <input type="number" step="0.1" id="lista-costo-var" placeholder="Ej: 6.6" class="w-full border border-red-200 p-2 rounded-lg bg-white outline-none text-sm font-bold text-black text-center focus:border-brand-primary">
+                        <p class="text-[9px] text-red-600 mt-1 leading-tight">Ej: IIBB (3%) + Comisiones (3.6%) = 6.6%.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+                <button onclick="guardarLista()" class="bg-brand-primary text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 transition w-full">Guardar Lista</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cliente -->
+    <div id="modal-cliente" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden fade-in">
+            <div class="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="text-xl font-serif font-bold text-gray-900" id="modal-cliente-title">Ficha de Cliente</h3>
+                <button onclick="cerrarModal('modal-cliente')" class="text-gray-500 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="cliente-id">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Nombre / Empresa</label>
+                    <input type="text" id="m-cli-nombre" placeholder="Ej: Juan Pérez" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary" required>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Teléfono</label>
+                    <input type="text" id="m-cli-tel" placeholder="Ej: 1122334455" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Tipo</label>
+                    <select id="m-cli-tipo" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 outline-none text-sm font-bold text-black focus:border-brand-primary">
+                        <option value="Minorista">Minorista</option>
+                        <option value="Mayorista">Mayorista</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+                <button onclick="guardarClienteModal()" class="bg-brand-dark text-white px-8 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition w-full">Guardar Cliente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Historial Cliente -->
+    <div id="modal-historial" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden fade-in">
+            <div class="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="text-xl font-serif font-bold text-gray-900" id="historial-cliente-titulo">Historial</h3>
+                <button onclick="cerrarModal('modal-historial')" class="text-gray-500 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-grow bg-white">
+                <div class="bg-blue-50 border-l-4 border-brand-primary p-4 rounded-r-lg mb-4">
+                    <p class="text-sm font-bold text-blue-900" id="historial-resumen">Total Comprado: $0</p>
+                </div>
+                <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-50 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                            <tr>
+                                <th class="p-4 w-24">Fecha</th>
+                                <th class="p-4">Detalle de Compra</th>
+                                <th class="p-4 text-right w-32">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historial-tbody" class="divide-y divide-gray-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- BASE DE DATOS LOCAL ---
+        let db = JSON.parse(localStorage.getItem('deposito_db_v7')) || {
+            config: { nombreEmpresa: 'La Juana', logoBase64: '', pin: '' },
+            productos: [
+                { id: '1', nombre: 'Sillón 3 Cuerpos Chenille', costo: 150000, cantidad: 5 },
+                { id: '2', nombre: 'Microondas 20L Básico', costo: 55000, cantidad: 12 }
+            ],
+            listasPrecio: [
+                { id: '1', nombre: 'Público Local', margen: 60, costoVariable: 0 },
+                { id: '2', nombre: 'Mayorista', margen: 30, costoVariable: 0 },
+                { id: '3', nombre: 'Mercado Libre', margen: 80, costoVariable: 15 } 
+            ],
+            clientes: [
+                { id: '1', nombre: 'Consumidor Final', tel: '-', tipo: 'Minorista' }
+            ],
+            caja: [],
+            gastosFijos: [],
+            presupuestos: [],
+            entregas: []
+        };
+
+        if(!db.presupuestos) db.presupuestos = [];
+        if(!db.entregas) db.entregas = [];
+
+        function guardarBD() {
+            localStorage.setItem('deposito_db_v7', JSON.stringify(db));
+        }
+
+        const generarId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const hoyString = () => new Date().toISOString().split('T')[0];
+        
+        let accionPendiente = null;
+        let tempLogo = db.config.logoBase64;
+        let carrito = []; 
+        let appLocked = false;
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('fecha-caja').value = hoyString();
+            document.getElementById('fecha-deposito').value = hoyString();
+            document.getElementById('filtro-mes-rentabilidad').value = hoyString().substring(0, 7);
+            
+            // Cargar último vendedor usado
+            const ultimoVend = localStorage.getItem('ultimo_vendedor');
+            if(ultimoVend && document.getElementById('pos-vendedor')) {
+                document.getElementById('pos-vendedor').value = ultimoVend;
+            }
+
+            aplicarConfiguracion();
+            
+            if(db.config.pin && db.config.pin !== '') {
+                bloquearApp();
+            } else {
+                desbloquearApp();
+            }
+            actualizarUI();
+        });
+
+        function renderStock() {
+            const tbody = document.getElementById('lista-stock-tabla');
+            const search = document.getElementById('buscador-stock') ? document.getElementById('buscador-stock').value.toLowerCase() : '';
+            if (!tbody) return;
+
+            let itemsCount = 0;
+            let unidadesCount = 0;
+            let alertasCount = 0;
+            let capitalTotal = 0;
+
+            const filtrados = db.productos.filter(p => p.nombre.toLowerCase().includes(search));
+
+            tbody.innerHTML = filtrados.length ? filtrados.map(p => {
+                itemsCount++;
+                unidadesCount += p.cantidad;
+                capitalTotal += (p.costo * p.cantidad);
+                if (p.cantidad <= 0) alertasCount++;
+
+                const trClass = p.cantidad <= 0 ? 'bg-red-50' : 'hover:bg-gray-50';
+                return `
+                <tr class="${trClass} transition border-b border-gray-100">
+                    <td class="py-3 px-4 font-bold text-gray-900">${p.nombre}</td>
+                    <td class="admin-only py-3 px-4 font-bold text-gray-600">$${p.costo.toLocaleString('es-AR')}</td>
+                    <td class="py-3 px-4 text-center font-bold ${p.cantidad <= 0 ? 'text-red-600' : 'text-gray-900'}">${p.cantidad}</td>
+                    <td class="admin-only py-3 px-4 text-center">
+                        <button onclick="editarStock('${p.id}')" class="text-blue-500 hover:text-blue-700 mx-1"><i class="fas fa-edit"></i></button>
+                        <button onclick="borrarStock('${p.id}')" class="text-red-500 hover:text-red-700 mx-1"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="4" class="py-10 text-center text-gray-500 font-bold">No hay productos.</td></tr>';
+
+            if(document.getElementById('stat-stock-items')) document.getElementById('stat-stock-items').innerText = itemsCount;
+            if(document.getElementById('stat-stock-unidades')) document.getElementById('stat-stock-unidades').innerText = unidadesCount;
+            if(document.getElementById('stat-stock-alerta')) document.getElementById('stat-stock-alerta').innerText = alertasCount;
+            if(document.getElementById('stat-stock-capital')) document.getElementById('stat-stock-capital').innerText = '$' + capitalTotal.toLocaleString('es-AR', {maximumFractionDigits:0});
+            
+            if(appLocked) {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            } else {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+            }
+        }
+
+        function renderPrecios() {
+            const thead = document.getElementById('thead-precios');
+            const tbody = document.getElementById('tbody-precios');
+            if(!thead || !tbody) return;
+
+            let thHTML = '<th class="py-4 px-4 min-w-[200px]">Producto</th><th class="py-4 px-4 text-center">Costo Base</th>';
+            db.listasPrecio.forEach(l => {
+                thHTML += `<th class="py-4 px-4 text-center bg-blue-50 border-l border-white">${l.nombre} <br><span class="text-[9px] text-blue-600 font-normal">Remarque: ${l.margen}% | C.Var: ${l.costoVariable || 0}%</span><br>
+                <button onclick="borrarLista('${l.id}')" class="text-red-500 hover:text-red-700 mt-1"><i class="fas fa-trash text-xs"></i></button></th>`;
+            });
+            thead.innerHTML = thHTML;
+
+            tbody.innerHTML = db.productos.length ? db.productos.map(p => {
+                let tdHTML = `<td class="py-3 px-4 font-bold text-gray-900">${p.nombre}</td><td class="py-3 px-4 text-center font-bold text-gray-600">$${p.costo.toLocaleString('es-AR')}</td>`;
+                
+                db.listasPrecio.forEach(l => {
+                    const precio = p.costo * (1 + (l.margen / 100));
+                    const varCost = precio * ((l.costoVariable || 0) / 100);
+                    const ganancia = precio - p.costo - varCost;
+                    const margenReal = precio > 0 ? (ganancia / precio) * 100 : 0;
+                    
+                    tdHTML += `<td class="py-3 px-4 text-center border-l border-gray-100">
+                        <span class="block text-lg font-bold text-brand-primary">$${precio.toLocaleString('es-AR', {maximumFractionDigits:0})}</span>
+                        <span class="block text-[10px] text-green-600 font-bold mt-1">Ganancia: $${ganancia.toLocaleString('es-AR', {maximumFractionDigits:0})}</span>
+                        <span class="block text-[9px] text-gray-500">M.Real: ${margenReal.toFixed(1)}%</span>
+                    </td>`;
+                });
+                return `<tr class="hover:bg-gray-50 border-b border-gray-100">${tdHTML}</tr>`;
+            }).join('') : `<tr><td colspan="${2 + db.listasPrecio.length}" class="py-10 text-center text-gray-500 font-bold">No hay productos cargados para calcular precios.</td></tr>`;
+        }
+
+        function renderClientes() {
+            const tbody = document.getElementById('lista-clientes-tabla');
+            const search = document.getElementById('buscador-clientes') ? document.getElementById('buscador-clientes').value.toLowerCase() : '';
+            if(!tbody) return;
+
+            const filtrados = db.clientes.filter(c => c.nombre.toLowerCase().includes(search));
+
+            tbody.innerHTML = filtrados.length ? filtrados.map(c => `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                    <td class="py-3 px-4 font-bold text-gray-900">${c.nombre}</td>
+                    <td class="py-3 px-4 text-gray-600">${c.tel}</td>
+                    <td class="py-3 px-4"><span class="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded uppercase">${c.tipo}</span></td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="verHistorialCliente('${c.id}')" class="text-blue-500 hover:text-blue-700 bg-blue-50 p-2 rounded-lg mx-1" title="Ver Historial"><i class="fas fa-history"></i></button>
+                        <button onclick="editarCliente('${c.id}')" class="text-gray-500 hover:text-gray-700 bg-gray-100 p-2 rounded-lg mx-1" title="Editar"><i class="fas fa-edit"></i></button>
+                        <button onclick="borrarCliente('${c.id}')" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg mx-1" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="4" class="py-10 text-center text-gray-500 font-bold">No hay clientes registrados.</td></tr>';
+        }
+
+        function guardarMovimiento(tipoGasto) {
+            const det = document.getElementById('mov-detalle').value.trim();
+            const met = document.getElementById('mov-metodo').value;
+            const mon = parseFloat(document.getElementById('mov-monto').value);
+
+            if(!det || isNaN(mon) || mon <= 0) return mostrarToast('Ingresá detalle y monto válido', 'bg-red-500');
+
+            db.caja.push({
+                id: generarId(),
+                fecha: document.getElementById('fecha-caja').value || hoyString(),
+                hora: `${new Date().getHours().toString().padStart(2,'0')}:${new Date().getMinutes().toString().padStart(2,'0')}`,
+                tipo: tipoGasto,
+                metodo: met,
+                concepto: det,
+                monto: mon
+            });
+
+            document.getElementById('mov-detalle').value = '';
+            document.getElementById('mov-monto').value = '';
+            
+            guardarBD();
+            actualizarUI();
+            mostrarToast('Movimiento guardado', 'bg-green-600');
+        }
+
+        function borrarMovimiento(id) {
+            pedirConfirmacion('¿Borrar este movimiento de caja?', () => {
+                db.caja = db.caja.filter(m => m.id !== id);
+                guardarBD();
+                actualizarUI();
+            });
+        }
+
+        function abrirModalStock() {
+            document.getElementById('stock-id').value = '';
+            document.getElementById('stock-nombre').value = '';
+            document.getElementById('stock-costo').value = '';
+            document.getElementById('stock-cantidad').value = '1';
+            document.getElementById('modal-stock-title').innerText = 'Nuevo Artículo';
+            abrirModalUI('modal-stock');
+        }
+
+        function editarStock(id) {
+            const p = db.productos.find(x => x.id === id);
+            if(!p) return;
+            document.getElementById('stock-id').value = p.id;
+            document.getElementById('stock-nombre').value = p.nombre;
+            document.getElementById('stock-costo').value = p.costo;
+            document.getElementById('stock-cantidad').value = p.cantidad;
+            document.getElementById('modal-stock-title').innerText = 'Editar Artículo';
+            abrirModalUI('modal-stock');
+        }
+
+        function guardarStock() {
+            const id = document.getElementById('stock-id').value;
+            const nombre = document.getElementById('stock-nombre').value.trim();
+            const costo = parseFloat(document.getElementById('stock-costo').value) || 0;
+            const cantidad = parseInt(document.getElementById('stock-cantidad').value) || 0;
+
+            if(!nombre) return mostrarToast('El nombre es obligatorio', 'bg-red-500');
+
+            if(id) {
+                const p = db.productos.find(x => x.id === id);
+                if(p) { p.nombre = nombre; p.costo = costo; p.cantidad = cantidad; }
+            } else {
+                db.productos.push({ id: generarId(), nombre, costo, cantidad });
+            }
+
+            guardarBD();
+            cerrarModal('modal-stock');
+            actualizarUI();
+            mostrarToast('Artículo guardado', 'bg-green-600');
+        }
+
+        function borrarStock(id) {
+            pedirConfirmacion('¿Borrar este producto?', () => {
+                db.productos = db.productos.filter(x => x.id !== id);
+                guardarBD();
+                actualizarUI();
+            });
+        }
+
+        function abrirModalLista() {
+            document.getElementById('lista-id').value = '';
+            document.getElementById('lista-nombre').value = '';
+            document.getElementById('lista-margen').value = '';
+            document.getElementById('lista-costo-var').value = '';
+            document.getElementById('modal-lista-title').innerText = 'Nueva Lista';
+            abrirModalUI('modal-lista');
+        }
+
+        function guardarLista() {
+            const id = document.getElementById('lista-id').value;
+            const nombre = document.getElementById('lista-nombre').value.trim();
+            const margen = parseFloat(document.getElementById('lista-margen').value) || 0;
+            const costoVar = parseFloat(document.getElementById('lista-costo-var').value) || 0;
+
+            if(!nombre) return mostrarToast('El nombre es obligatorio', 'bg-red-500');
+
+            if(id) {
+                const l = db.listasPrecio.find(x => x.id === id);
+                if(l) { l.nombre = nombre; l.margen = margen; l.costoVariable = costoVar; }
+            } else {
+                db.listasPrecio.push({ id: generarId(), nombre, margen, costoVariable: costoVar });
+            }
+
+            guardarBD();
+            cerrarModal('modal-lista');
+            actualizarUI();
+            mostrarToast('Lista guardada', 'bg-green-600');
+        }
+        
+        function borrarLista(id) {
+            pedirConfirmacion('¿Borrar esta lista de precios?', () => {
+                db.listasPrecio = db.listasPrecio.filter(x => x.id !== id);
+                guardarBD();
+                actualizarUI();
+            });
+        }
+
+        function abrirModalCliente() {
+            document.getElementById('cliente-id').value = '';
+            document.getElementById('m-cli-nombre').value = '';
+            document.getElementById('m-cli-tel').value = '';
+            document.getElementById('m-cli-tipo').value = 'Minorista';
+            document.getElementById('modal-cliente-title').innerText = 'Nuevo Cliente';
+            abrirModalUI('modal-cliente');
+        }
+
+        function editarCliente(id) {
+            const c = db.clientes.find(x => x.id === id);
+            if(!c) return;
+            document.getElementById('cliente-id').value = c.id;
+            document.getElementById('m-cli-nombre').value = c.nombre;
+            document.getElementById('m-cli-tel').value = c.tel;
+            document.getElementById('m-cli-tipo').value = c.tipo;
+            document.getElementById('modal-cliente-title').innerText = 'Editar Cliente';
+            abrirModalUI('modal-cliente');
+        }
+
+        function guardarClienteModal() {
+            const id = document.getElementById('cliente-id').value;
+            const nombre = document.getElementById('m-cli-nombre').value.trim();
+            const tel = document.getElementById('m-cli-tel').value.trim();
+            const tipo = document.getElementById('m-cli-tipo').value;
+
+            if(!nombre) return mostrarToast('El nombre es obligatorio', 'bg-red-500');
+
+            if(id) {
+                const c = db.clientes.find(x => x.id === id);
+                if(c) { c.nombre = nombre; c.tel = tel; c.tipo = tipo; }
+            } else {
+                db.clientes.push({ id: generarId(), nombre, tel, tipo });
+            }
+
+            guardarBD();
+            cerrarModal('modal-cliente');
+            actualizarUI();
+            mostrarToast('Cliente guardado', 'bg-green-600');
+        }
+
+        function borrarCliente(id) {
+            pedirConfirmacion('¿Borrar este cliente?', () => {
+                db.clientes = db.clientes.filter(x => x.id !== id);
+                guardarBD();
+                actualizarUI();
+            });
+        }
+
+        function verHistorialCliente(id) {
+            const c = db.clientes.find(x => x.id === id);
+            if(!c) return;
+            
+            document.getElementById('historial-cliente-titulo').innerText = `Historial: ${c.nombre}`;
+            
+            const compras = db.caja.filter(m => m.tipo === 'venta' && (m.cliente === c.nombre));
+            const tbody = document.getElementById('historial-tbody');
+            
+            let total = 0;
+            tbody.innerHTML = compras.length ? compras.map(m => {
+                total += m.monto;
+                return `
+                <tr class="border-b border-gray-100">
+                    <td class="p-4 font-bold text-gray-900">${m.fecha}</td>
+                    <td class="p-4 text-xs text-gray-600">${m.detalle || m.concepto}</td>
+                    <td class="p-4 text-right font-bold text-green-600">$${m.monto.toLocaleString('es-AR')}</td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="3" class="p-4 text-center text-gray-500">No hay compras registradas.</td></tr>';
+            
+            document.getElementById('historial-resumen').innerText = `Total Comprado: $${total.toLocaleString('es-AR')}`;
+            abrirModalUI('modal-historial');
+        }
+
+        // --- SEGURIDAD: MODO EMPLEADO / ADMIN ---
+        function toggleLock() {
+            if(appLocked) {
+                document.getElementById('input-pin-unlock').value = '';
+                abrirModalUI('modal-pin');
+            } else {
+                if(!db.config.pin || db.config.pin === '') return mostrarToast('Primero configurá un PIN en la sección Configuración', 'bg-orange-500');
+                bloquearApp();
+                mostrarToast('App Bloqueada: Modo Empleado Activado', 'bg-blue-600');
+            }
+        }
+
+        function verificarPin() {
+            const val = document.getElementById('input-pin-unlock').value;
+            if(val === db.config.pin) {
+                cerrarModal('modal-pin');
+                desbloquearApp();
+                mostrarToast('Modo Admin Desbloqueado', 'bg-green-600');
+                actualizarUI();
+            } else {
+                mostrarToast('PIN Incorrecto', 'bg-red-500');
+            }
+        }
+
+        function bloquearApp() {
+            appLocked = true;
+            document.body.classList.add('app-locked');
+            const btn = document.getElementById('btn-lock');
+            btn.innerHTML = '<i class="fas fa-lock mr-2"></i> Modo Empleado';
+            btn.classList.replace('bg-slate-100', 'bg-blue-100');
+            btn.classList.replace('text-slate-700', 'text-blue-700');
+            
+            const tabActual = document.querySelector('.tab-content:not(.hidden)').id;
+            if(tabActual === 'tab-rentabilidad' || tabActual === 'tab-config') {
+                switchTab('tab-pos', document.querySelector('.tab-link'));
+            } else {
+                actualizarUI();
+            }
+        }
+
+        function desbloquearApp() {
+            appLocked = false;
+            document.body.classList.remove('app-locked');
+            const btn = document.getElementById('btn-lock');
+            btn.innerHTML = '<i class="fas fa-unlock mr-2"></i> Modo Admin';
+            btn.classList.replace('bg-blue-100', 'bg-slate-100');
+            btn.classList.replace('text-blue-700', 'text-slate-700');
+            actualizarUI();
+        }
+
+        // --- CONFIGURACIÓN Y BRANDING ---
+        function aplicarConfiguracion() {
+            const nombre = db.config.nombreEmpresa || 'La Juana';
+            document.getElementById('sidebar-name').innerText = nombre;
+            document.getElementById('conf-empresa-nombre').value = nombre;
+            document.getElementById('conf-pin').value = db.config.pin;
+            
+            const logoContainer = document.getElementById('custom-logo');
+            const defaultLogo = document.getElementById('default-logo');
+            const prevConfLogo = document.getElementById('preview-conf-logo');
+            const prevConfPlac = document.getElementById('preview-conf-logo-placeholder');
+            const btnBorrar = document.getElementById('btn-borrar-logo');
+
+            if(db.config.logoBase64) {
+                logoContainer.src = db.config.logoBase64;
+                logoContainer.classList.remove('hidden');
+                defaultLogo.classList.add('hidden');
+                
+                prevConfLogo.src = db.config.logoBase64;
+                prevConfLogo.classList.remove('hidden');
+                prevConfPlac.classList.add('hidden');
+                btnBorrar.classList.remove('hidden');
+            } else {
+                logoContainer.classList.add('hidden');
+                defaultLogo.classList.remove('hidden');
+                
+                prevConfLogo.classList.add('hidden');
+                prevConfPlac.classList.remove('hidden');
+                btnBorrar.classList.add('hidden');
+            }
+        }
+
+        function procesarLogoUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = event => {
+                tempLogo = event.target.result;
+                document.getElementById('preview-conf-logo').src = tempLogo;
+                document.getElementById('preview-conf-logo').classList.remove('hidden');
+                document.getElementById('preview-conf-logo-placeholder').classList.add('hidden');
+                document.getElementById('btn-borrar-logo').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function borrarLogo() {
+            tempLogo = '';
+            document.getElementById('preview-conf-logo').classList.add('hidden');
+            document.getElementById('preview-conf-logo-placeholder').classList.remove('hidden');
+            document.getElementById('btn-borrar-logo').classList.add('hidden');
+        }
+
+        function guardarConfiguracion() {
+            db.config.nombreEmpresa = document.getElementById('conf-empresa-nombre').value.trim();
+            db.config.pin = document.getElementById('conf-pin').value.trim();
+            db.config.logoBase64 = tempLogo;
+            guardarBD();
+            aplicarConfiguracion();
+            mostrarToast('Configuración guardada', 'bg-green-600');
+            if(db.config.pin) bloquearApp();
+        }
+
+        function vaciarDatosMasivos(modulo) {
+            pedirConfirmacion(`⚠️ ¿Estás seguro de borrar TODOS los datos de ${modulo.toUpperCase()}? Esta acción no se puede deshacer.`, () => {
+                if(modulo === 'caja') db.caja = [];
+                if(modulo === 'stock') db.productos = [];
+                if(modulo === 'precios') db.listasPrecio = [];
+                if(modulo === 'clientes') db.clientes = [];
+                if(modulo === 'gastos') db.gastosFijos = [];
+                guardarBD();
+                actualizarUI();
+                mostrarToast(`Datos de ${modulo} eliminados`, 'bg-red-500');
+            });
+        }
+
+        // --- NAVEGACIÓN Y UI ---
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.remove('active', 'text-brand-primary', 'bg-brand-light');
+                link.classList.add('text-gray-600', 'hover:bg-gray-50');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            if(el) { el.classList.remove('text-gray-600', 'hover:bg-gray-50'); el.classList.add('active', 'text-brand-primary', 'bg-brand-light'); }
+            if(window.innerWidth < 768) document.getElementById('mobile-menu').classList.add('hidden');
+            actualizarUI();
+        }
+
+        function actualizarUI() {
+            try { renderCaja(); } catch(e) {}
+            try { renderFormVenta(); } catch(e) {}
+            try { renderStock(); } catch(e) {}
+            try { renderPrecios(); } catch(e) {}
+            try { renderClientes(); } catch(e) {}
+            try { renderPresupuestos(); } catch(e) {}
+            try { renderEntregas(); } catch(e) {}
+            if(!appLocked) { try { renderRentabilidad(); } catch(e) {} }
+        }
+
+        function cerrarModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+        function abrirModalUI(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        
+        function mostrarToast(msg, color = 'bg-brand-dark') {
+            const cont = document.getElementById('toast-container');
+            const div = document.createElement('div');
+            div.className = `toast ${color}`; div.innerHTML = msg;
+            cont.appendChild(div);
+            setTimeout(() => { div.style.animation = 'slideIn 0.3s reverse forwards'; setTimeout(()=>div.remove(),300); }, 3000);
+        }
+
+        function pedirConfirmacion(mensaje, callback) {
+            document.getElementById('confirm-msg').innerText = mensaje;
+            accionPendiente = callback;
+            abrirModalUI('modal-confirm');
+        }
+
+        document.getElementById('btn-confirmar-accion').addEventListener('click', () => {
+            if(accionPendiente) accionPendiente();
+            cerrarModal('modal-confirm');
+        });
+
+        // --- EXPORTAR E IMPORTAR EXCEL ---
+        function descargarPlantilla(tipo) {
+            let ws_data = [];
+            let nombreArchivo = "";
+            
+            if(tipo === 'stock') {
+                ws_data = [
+                    ["Nombre del Producto", "Costo", "Stock Físico"],
+                    ["Sillón 3 Cuerpos Chenille", 150000, 5],
+                    ["Smart TV 50 Pulgadas", 350000, 10]
+                ];
+                nombreArchivo = "Plantilla_Stock.xlsx";
+            } else if (tipo === 'clientes') {
+                ws_data = [
+                    ["Nombre / Empresa", "Teléfono", "Tipo (Minorista/Mayorista)"],
+                    ["Juan Pérez", "1122334455", "Minorista"],
+                    ["Mueblería Centro", "1144556677", "Mayorista"]
+                ];
+                nombreArchivo = "Plantilla_Clientes.xlsx";
+            }
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+            XLSX.writeFile(wb, nombreArchivo);
+        }
+
+        function exportarCajaExcel() {
+            if(db.caja.length === 0) return mostrarToast('No hay datos en caja para exportar.', 'bg-orange-500');
+            
+            const mesActual = document.getElementById('fecha-caja').value.substring(0, 7);
+            const filtroMes = confirm('¿Querés exportar solo este mes o todo el historial?\nAceptar = Solo Mes\nCancelar = Historial Completo');
+            
+            let datosExportar = db.caja;
+            if(filtroMes) datosExportar = db.caja.filter(m => m.fecha.startsWith(mesActual));
+            if(datosExportar.length === 0) return mostrarToast('No hay datos en el periodo seleccionado.', 'bg-orange-500');
+
+            datosExportar.sort((a,b) => a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora));
+
+            let dataFormateada = [];
+            let fechaActual = "";
+            let tIngD = 0, tEgrD = 0;
+
+            datosExportar.forEach(m => {
+                if (fechaActual !== m.fecha) {
+                    if (fechaActual !== "") {
+                        dataFormateada.push({ Fecha: "", Hora: "", Tipo: "CIERRE DIARIO", Medio_de_Pago: "", Concepto: `SALDO DEL DÍA: $${tIngD - tEgrD}`, Cliente_Detalle: "", Ingreso: tIngD, Egreso: tEgrD });
+                        dataFormateada.push({ Fecha: "", Hora: "", Tipo: "", Medio_de_Pago: "", Concepto: "", Cliente_Detalle: "", Ingreso: "", Egreso: "" });
+                    }
+                    fechaActual = m.fecha;
+                    tIngD = 0; tEgrD = 0;
+                }
+
+                let ing = (m.tipo === 'venta' || m.tipo === 'ingreso') ? m.monto : 0;
+                let egr = m.tipo === 'gasto' ? m.monto : 0;
+                tIngD += ing; tEgrD += egr;
+
+                dataFormateada.push({
+                    Fecha: m.fecha,
+                    Hora: m.hora,
+                    Tipo: m.tipo.toUpperCase(),
+                    Medio_de_Pago: m.metodo || 'Efectivo',
+                    Concepto: m.concepto,
+                    Cliente_Detalle: m.cliente || m.detalle || '-',
+                    Ingreso: ing || "",
+                    Egreso: egr || ""
+                });
+            });
+
+            if (fechaActual !== "") {
+                dataFormateada.push({ Fecha: "", Hora: "", Tipo: "CIERRE DIARIO", Medio_de_Pago: "", Concepto: `SALDO DEL DÍA: $${tIngD - tEgrD}`, Cliente_Detalle: "", Ingreso: tIngD, Egreso: tEgrD });
+            }
+
+            const ws = XLSX.utils.json_to_sheet(dataFormateada);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Caja");
+            XLSX.writeFile(wb, `Caja_Cierres_${hoyString()}.xlsx`);
+            mostrarToast('Excel generado con éxito', 'bg-green-600');
+        }
+
+        function exportarPreciosExcel() {
+            if(db.productos.length === 0) return mostrarToast('No hay productos cargados.', 'bg-orange-500');
+
+            let headers = ['Producto', 'Costo Base'];
+            db.listasPrecio.forEach(l => {
+                headers.push(`${l.nombre} (Precio)`);
+                headers.push(`${l.nombre} (Ganancia Neta)`);
+                headers.push(`${l.nombre} (Margen Real %)`);
+            });
+
+            let dataFormateada = db.productos.map(p => {
+                let fila = { Producto: p.nombre, 'Costo Base': p.costo };
+                db.listasPrecio.forEach(l => {
+                    const markup = l.margen / 100;
+                    const varCostPerc = (l.costoVariable || 0) / 100;
+                    const precio = p.costo * (1 + markup);
+                    const varCost = precio * varCostPerc;
+                    const ganancia = precio - p.costo - varCost;
+                    const margenReal = (ganancia / precio) * 100;
+                    
+                    fila[`${l.nombre} (Precio)`] = precio;
+                    fila[`${l.nombre} (Ganancia Neta)`] = ganancia;
+                    fila[`${l.nombre} (Margen Real %)`] = parseFloat(margenReal.toFixed(1));
+                });
+                return fila;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(dataFormateada, {header: headers});
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Listas de Precios");
+            XLSX.writeFile(wb, `Listas_Precios_${hoyString()}.xlsx`);
+            mostrarToast('Excel de Precios exportado', 'bg-green-600');
+        }
+
+        function importarExcel(tipo, e) {
+            let file = e.target.files[0];
+            if(!file) return;
+            
+            document.getElementById('carga-overlay-msg').innerText = "Procesando Excel...";
+            document.getElementById('carga-overlay-global').classList.remove('hidden');
+
+            let reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    let data = new Uint8Array(evt.target.result);
+                    let workbook = XLSX.read(data, {type:'array'});
+                    let sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    let json = XLSX.utils.sheet_to_json(sheet, {header:1});
+                    
+                    if(json.length < 2) throw new Error("El Excel está vacío o no tiene datos válidos.");
+                    
+                    let headers = json[0].map(h => String(h||'').toLowerCase().trim());
+                    let importados = 0; let actualizados = 0;
+
+                    if(tipo === 'stock') {
+                        let colNom = headers.findIndex(h => h.includes('nombre') || h.includes('producto'));
+                        let colCost = headers.findIndex(h => h.includes('costo') || h.includes('precio'));
+                        let colCant = headers.findIndex(h => h.includes('stock') || h.includes('cant') || h.includes('físico'));
+                        
+                        if(colNom === -1) colNom = 0;
+                        if(colCost === -1) colCost = 1; 
+                        if(colCant === -1) colCant = 2; 
+
+                        if(colNom === -1 || colCost === -1) throw new Error("Faltan columnas obligatorias: 'Nombre' o 'Costo'. Asegurate de usar la plantilla.");
+
+                        for(let i=1; i<json.length; i++) {
+                            let row = json[i]; if(!row[colNom]) continue;
+                            let nombre = String(row[colNom]).trim();
+                            let costo = parseFloat(String(row[colCost]).replace(/[$.]/g,'').replace(',','.')) || 0;
+                            let cant = colCant !== -1 ? (parseInt(row[colCant]) || 0) : 0;
+
+                            let existente = db.productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
+                            if(existente) {
+                                existente.costo = costo; existente.cantidad = cant; actualizados++;
+                            } else {
+                                db.productos.push({ id: generarId(), nombre: nombre, costo: costo, cantidad: cant }); importados++;
+                            }
+                        }
+                    } else if (tipo === 'clientes') {
+                        let colNom = headers.findIndex(h => h.includes('nombre') || h.includes('empresa'));
+                        let colTel = headers.findIndex(h => h.includes('tel'));
+                        let colTipo = headers.findIndex(h => h.includes('tipo'));
+
+                        if(colNom === -1) colNom = 0;
+                        if(colTel === -1) colTel = 1;
+                        if(colTipo === -1) colTipo = 2;
+
+                        if(colNom === -1) throw new Error("Falta columna obligatoria: 'Nombre'. Asegurate de usar la plantilla.");
+
+                        for(let i=1; i<json.length; i++) {
+                            let row = json[i]; if(!row[colNom]) continue;
+                            let nombre = String(row[colNom]).trim();
+                            let tel = colTel !== -1 && row[colTel] ? String(row[colTel]) : '-';
+                            let tipoCli = colTipo !== -1 && row[colTipo] ? String(row[colTipo]) : 'Minorista';
+
+                            let existente = db.clientes.find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
+                            if(existente) {
+                                existente.tel = tel; existente.tipo = tipoCli; actualizados++;
+                            } else {
+                                db.clientes.push({ id: generarId(), nombre: nombre, tel: tel, tipo: tipoCli }); importados++;
+                            }
+                        }
+                    }
+                    
+                    guardarBD();
+                    actualizarUI();
+                    mostrarToast(`Listo: ${importados} nuevos, ${actualizados} actualizados.`, 'bg-green-600');
+                } catch (error) {
+                    alert(error.message);
+                } finally {
+                    document.getElementById('carga-overlay-global').classList.add('hidden');
+                    e.target.value = ''; 
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- PUNTO DE VENTA Y PRESUPUESTOS (NUEVO WORKFLOW) ---
+        function renderFormVenta() {
+            const dlProds = document.getElementById('dl-productos-pos');
+            const listaSel = document.getElementById('pos-lista');
+            const cliSel = document.getElementById('pos-cliente');
+
+            dlProds.innerHTML = db.productos.map(p => {
+                const infoExtra = p.cantidad <= 0 ? 'AGOTADO' : `Stock: ${p.cantidad}`;
+                return `<option value="${p.nombre}">${infoExtra}</option>`;
+            }).join('');
+            
+            listaSel.innerHTML = db.listasPrecio.map(l => `<option value="${l.id}">${l.nombre} (+${l.margen}%)</option>`).join('');
+            cliSel.innerHTML = '<option value="">Consumidor Final</option>' + db.clientes.map(c => `<option value="${c.nombre}">${c.nombre} (${c.tipo})</option>`).join('');
+            
+            renderCarrito();
+        }
+
+        function actualizarPrecioPos() {
+            const pNombre = document.getElementById('pos-producto-nombre').value.trim();
+            const lId = document.getElementById('pos-lista').value;
+            const cant = parseInt(document.getElementById('pos-cantidad').value) || 1;
+            
+            const p = db.productos.find(x => x.nombre.toLowerCase() === pNombre.toLowerCase());
+            
+            if(!p || !lId) {
+                document.getElementById('pos-total-preview').innerText = '$0';
+                return;
+            }
+
+            const l = db.listasPrecio.find(x => x.id === lId);
+            const precioUnitario = p.costo * (1 + (l.margen / 100));
+            
+            document.getElementById('pos-total-preview').innerText = '$' + (precioUnitario * cant).toLocaleString('es-AR', {maximumFractionDigits: 0});
+        }
+
+        function agregarAlCarrito(e) {
+            e.preventDefault();
+            const pNombre = document.getElementById('pos-producto-nombre').value.trim();
+            const lId = document.getElementById('pos-lista').value;
+            const cant = parseInt(document.getElementById('pos-cantidad').value) || 1;
+            
+            if(!pNombre || !lId) return mostrarToast('Seleccione producto y lista', 'bg-red-500');
+
+            const p = db.productos.find(x => x.nombre.toLowerCase() === pNombre.toLowerCase());
+            if(!p) return mostrarToast('El producto no existe. Seleccioná uno de la lista.', 'bg-red-500');
+            
+            const l = db.listasPrecio.find(x => x.id === lId);
+
+            if(p.cantidad <= 0) mostrarToast('Aviso: Agregando producto sin stock al presupuesto.', 'bg-orange-500');
+
+            const precioUnitario = p.costo * (1 + (l.margen / 100));
+            const costoVarPerc = (l.costoVariable || 0) / 100;
+
+            carrito.push({
+                id: generarId(),
+                pId: p.id,
+                nombre: p.nombre,
+                listaNombre: l.nombre,
+                cant: cant,
+                precioUnitario: precioUnitario,
+                costoUnitario: p.costo,
+                costoVarPerc: costoVarPerc
+            });
+
+            document.getElementById('pos-producto-nombre').value = '';
+            document.getElementById('pos-cantidad').value = 1;
+            renderCarrito();
+            actualizarPrecioPos();
+            document.getElementById('pos-producto-nombre').focus();
+        }
+
+        function eliminarDelCarrito(id) {
+            carrito = carrito.filter(x => x.id !== id);
+            renderCarrito();
+        }
+
+        function renderCarrito() {
+            const container = document.getElementById('pos-carrito-container');
+            const tbody = document.getElementById('pos-carrito-tbody');
+            const totalPreview = document.getElementById('pos-total-preview');
+
+            if(carrito.length === 0) {
+                container.classList.add('hidden');
+                totalPreview.innerText = '$0';
+                return;
+            }
+
+            container.classList.remove('hidden');
+            let total = 0;
+
+            tbody.innerHTML = carrito.map(item => {
+                const subtotal = item.cant * item.precioUnitario;
+                total += subtotal;
+                return `
+                <tr>
+                    <td class="p-3 font-bold text-center">${item.cant}</td>
+                    <td class="p-3 text-gray-900 font-bold">${item.nombre}</td>
+                    <td class="p-3 text-xs text-gray-500 uppercase">${item.listaNombre}</td>
+                    <td class="p-3 text-right font-bold text-green-600">$${subtotal.toLocaleString('es-AR', {maximumFractionDigits:0})}</td>
+                    <td class="p-3 text-center"><button type="button" onclick="eliminarDelCarrito('${item.id}')" class="text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button></td>
+                </tr>`;
+            }).join('');
+
+            totalPreview.innerText = '$' + total.toLocaleString('es-AR', {maximumFractionDigits:0});
+        }
+
+        function generarPDFPresupuesto(detalles, total, cliente, fecha, vendedor) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const nombreEmpresa = db.config.nombreEmpresa || 'Depósito';
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.text(nombreEmpresa, 105, 20, null, null, "center");
+            
+            doc.setFontSize(14);
+            doc.text("PRESUPUESTO (NO VÁLIDO COMO FACTURA)", 105, 30, null, null, "center");
+            
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Fecha: ${fecha}`, 20, 45);
+            doc.text(`Cliente: ${cliente}`, 20, 52);
+            doc.text(`Vendedor: ${vendedor}`, 20, 59);
+            
+            doc.line(20, 67, 190, 67);
+            
+            doc.setFont("helvetica", "bold");
+            doc.text("CANT.", 20, 74);
+            doc.text("PRODUCTO", 40, 74);
+            doc.text("SUBTOTAL", 160, 74);
+            
+            doc.line(20, 77, 190, 77);
+            
+            doc.setFont("helvetica", "normal");
+            let y = 87;
+            detalles.forEach(d => {
+                doc.text(String(d.cant), 22, y);
+                doc.text(d.nombre, 40, y);
+                doc.text(`$${d.subtotal.toLocaleString('es-AR')}`, 160, y);
+                y += 10;
+            });
+            
+            doc.line(20, y, 190, y);
+            y += 10;
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text("TOTAL PRESUPUESTADO:", 80, y);
+            doc.text(`$${total.toLocaleString('es-AR')}`, 160, y);
+            
+            window.open(URL.createObjectURL(doc.output("blob")));
+        }
+
+        function guardarPresupuesto() {
+            if(carrito.length === 0) return mostrarToast('El carrito está vacío', 'bg-red-500');
+            
+            const cli = document.getElementById('pos-cliente').value || 'Consumidor Final';
+            const vendedor = document.getElementById('pos-vendedor').value.trim();
+            
+            if(!vendedor) return mostrarToast('Por favor, ingresá el nombre del vendedor.', 'bg-red-500');
+            
+            let totalVenta = 0;
+            let totalCosto = 0;
+            let totalCostoVar = 0;
+            let detalles = [];
+
+            carrito.forEach(item => {
+                const subtotal = item.precioUnitario * item.cant;
+                totalVenta += subtotal;
+                totalCosto += (item.costoUnitario * item.cant);
+                totalCostoVar += (subtotal * item.costoVarPerc); 
+                detalles.push({ cant: item.cant, nombre: item.nombre, subtotal: subtotal });
+            });
+
+            const fechaStr = hoyString();
+            const now = new Date();
+            const horaStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+            
+            db.presupuestos.push({
+                id: generarId(),
+                fecha: fechaStr,
+                hora: horaStr,
+                cliente: cli,
+                vendedor: vendedor,
+                totalVenta: totalVenta,
+                totalCosto: totalCosto,
+                totalCostoVar: totalCostoVar,
+                items: JSON.parse(JSON.stringify(carrito)),
+                detallesTexto: detalles.map(d => `${d.cant}x ${d.nombre}`).join(' | ')
+            });
+
+            generarPDFPresupuesto(detalles, totalVenta, cli, fechaStr, vendedor);
+            
+            localStorage.setItem('ultimo_vendedor', vendedor);
+            carrito = [];
+            guardarBD();
+            actualizarUI();
+            mostrarToast('Presupuesto guardado', 'bg-indigo-600');
+        }
+
+        // --- TABLA PRESUPUESTOS (COBROS) ---
+        function renderPresupuestos() {
+            const pPendientes = db.presupuestos;
+            const tbody = document.getElementById('lista-presupuestos-tabla');
+            
+            tbody.innerHTML = pPendientes.length ? pPendientes.map(p => `
+                <tr class="hover:bg-gray-50 border-b border-gray-100">
+                    <td class="py-3 px-4 font-bold text-gray-900">${p.fecha} <span class="text-xs text-gray-500 block">${p.hora}</span></td>
+                    <td class="py-3 px-4"><span class="font-bold text-gray-900 block">${p.cliente}</span><span class="text-[10px] text-gray-500 line-clamp-1">Vend: ${p.vendedor || '-'} | ${p.detallesTexto}</span></td>
+                    <td class="py-3 px-4 text-right font-bold text-brand-primary text-base">$${p.totalVenta.toLocaleString('es-AR', {maximumFractionDigits:0})}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="borrarPresupuesto('${p.id}')" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg mx-1" title="Eliminar"><i class="fas fa-trash"></i></button>
+                        <button onclick="abrirModalCobroPresupuesto('${p.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold px-3 py-1.5 rounded-lg shadow-sm transition ml-2">
+                            <i class="fas fa-money-check-alt mr-1"></i> Cobrar
+                        </button>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="4" class="py-10 text-center text-gray-500 font-bold">No hay presupuestos pendientes de cobro.</td></tr>';
+        }
+
+        function borrarPresupuesto(id) {
+            pedirConfirmacion('¿Eliminar este presupuesto pendiente?', () => {
+                db.presupuestos = db.presupuestos.filter(x => x.id !== id);
+                guardarBD();
+                actualizarUI();
+            });
+        }
+
+        function abrirModalCobroPresupuesto(id) {
+            const p = db.presupuestos.find(x => x.id === id);
+            if(!p) return;
+            document.getElementById('cobro-presupuesto-id').value = p.id;
+            document.getElementById('cobro-monto-total').innerText = '$' + p.totalVenta.toLocaleString('es-AR');
+            abrirModalUI('modal-cobro');
+        }
+
+        function confirmarCobroPresupuesto() {
+            const id = document.getElementById('cobro-presupuesto-id').value;
+            const metodoPago = document.getElementById('cobro-metodo').value;
+            
+            const p = db.presupuestos.find(x => x.id === id);
+            if(!p) return;
+
+            for(let item of p.items) {
+                const productoDB = db.productos.find(prod => prod.id === item.pId);
+                if(!productoDB || productoDB.cantidad < item.cant) {
+                    cerrarModal('modal-cobro');
+                    return mostrarToast(`Error de stock: Falta inventario para ${item.nombre}`, 'bg-red-500');
+                }
+            }
+
+            p.items.forEach(item => {
+                const productoDB = db.productos.find(prod => prod.id === item.pId);
+                if(productoDB) productoDB.cantidad -= item.cant;
+            });
+
+            db.caja.push({
+                id: generarId(),
+                fecha: hoyString(),
+                hora: `${new Date().getHours().toString().padStart(2,'0')}:${new Date().getMinutes().toString().padStart(2,'0')}`,
+                tipo: 'venta',
+                metodo: metodoPago,
+                concepto: 'Venta de mercadería (Presupuesto cobrado)',
+                cliente: p.cliente,
+                detalle: p.detallesTexto + ` (Vend: ${p.vendedor || 'N/A'})`,
+                vendedor: p.vendedor || 'N/A',
+                monto: p.totalVenta,
+                costoAsociado: p.totalCosto,
+                costoVariableAsociado: p.totalCostoVar
+            });
+
+            db.entregas.push({
+                id: generarId(),
+                fecha: hoyString(),
+                hora: `${new Date().getHours().toString().padStart(2,'0')}:${new Date().getMinutes().toString().padStart(2,'0')}`,
+                cliente: p.cliente,
+                vendedor: p.vendedor || 'N/A',
+                metodoPago: metodoPago,
+                monto: p.totalVenta,
+                detalles: p.items.map(item => ({ texto: `${item.cant}x   ${item.nombre}`, subtotal: item.cant * item.precioUnitario })),
+                estado: 'pendiente'
+            });
+
+            db.presupuestos = db.presupuestos.filter(x => x.id !== id);
+
+            guardarBD();
+            cerrarModal('modal-cobro');
+            actualizarUI();
+            mostrarToast('Cobro procesado. ¡Avisale al depósito para preparar la entrega!', 'bg-green-600');
+        }
+
+        // --- VENTA DIRECTA DESDE POS ---
+        function abrirModalCobroPos() {
+            if(carrito.length === 0) return mostrarToast('El carrito está vacío', 'bg-red-500');
+            
+            const vendedor = document.getElementById('pos-vendedor').value.trim();
+            if(!vendedor) return mostrarToast('Por favor, ingresá el nombre del vendedor.', 'bg-red-500');
+            
+            document.getElementById('cobro-presupuesto-id').value = 'DIRECTO';
+            const total = carrito.reduce((acc, val) => acc + (val.cant * val.precioUnitario), 0);
+            document.getElementById('cobro-monto-total').innerText = '$' + total.toLocaleString('es-AR');
+            abrirModalUI('modal-cobro');
+        }
+
+        const btnConfirmarOriginal = document.querySelector('#modal-cobro button[onclick="confirmarCobroPresupuesto()"]');
+        btnConfirmarOriginal.onclick = function() {
+            const id = document.getElementById('cobro-presupuesto-id').value;
+            if(id === 'DIRECTO') {
+                confirmarVentaDirectaCarrito();
+            } else {
+                confirmarCobroPresupuesto();
+            }
+        };
+
+        function confirmarVentaDirectaCarrito() {
+            const cli = document.getElementById('pos-cliente').value || 'Consumidor Final';
+            const metodoPago = document.getElementById('cobro-metodo').value;
+            const vendedor = document.getElementById('pos-vendedor').value.trim();
+
+            if(!vendedor) {
+                cerrarModal('modal-cobro');
+                return mostrarToast('Por favor, ingresá el nombre del vendedor.', 'bg-red-500');
+            }
+
+            for(let item of carrito) {
+                const p = db.productos.find(x => x.id === item.pId);
+                if(!p || p.cantidad < item.cant) {
+                    cerrarModal('modal-cobro');
+                    return mostrarToast(`Stock insuficiente de ${item.nombre}`, 'bg-red-500');
+                }
+            }
+
+            let totalVenta = 0; let totalCosto = 0; let totalCostoVar = 0; let detallesTexto = []; let detallesRemito = [];
+
+            carrito.forEach(item => {
+                const p = db.productos.find(x => x.id === item.pId);
+                p.cantidad -= item.cant;
+                
+                const subtotal = item.precioUnitario * item.cant;
+                totalVenta += subtotal;
+                totalCosto += (item.costoUnitario * item.cant);
+                totalCostoVar += (subtotal * item.costoVarPerc); 
+                detallesTexto.push(`${item.cant}x ${item.nombre}`);
+                detallesRemito.push({ texto: `${item.cant}x   ${item.nombre}`, subtotal: subtotal });
+            });
+
+            const horaStr = `${new Date().getHours().toString().padStart(2,'0')}:${new Date().getMinutes().toString().padStart(2,'0')}`;
+            
+            db.caja.push({
+                id: generarId(),
+                fecha: hoyString(),
+                hora: horaStr,
+                tipo: 'venta',
+                metodo: metodoPago,
+                concepto: 'Venta de mercadería (Directa)',
+                cliente: cli,
+                detalle: detallesTexto.join(' | ') + ` (Vend: ${vendedor})`,
+                vendedor: vendedor,
+                monto: totalVenta,
+                costoAsociado: totalCosto,
+                costoVariableAsociado: totalCostoVar
+            });
+
+            db.entregas.push({
+                id: generarId(),
+                fecha: hoyString(),
+                hora: horaStr,
+                cliente: cli,
+                vendedor: vendedor,
+                metodoPago: metodoPago,
+                monto: totalVenta,
+                detalles: detallesRemito,
+                estado: 'pendiente'
+            });
+
+            localStorage.setItem('ultimo_vendedor', vendedor);
+            carrito = [];
+            guardarBD();
+            cerrarModal('modal-cobro');
+            actualizarUI();
+            mostrarToast('Venta cobrada. Lista para despacho.', 'bg-green-600');
+        }
+
+        // --- DEPOSITO Y REMITOS ---
+        function renderEntregas() {
+            const fecha = document.getElementById('fecha-deposito').value;
+            const entregasDia = db.entregas.filter(e => e.fecha === fecha).reverse();
+            
+            const tbody = document.getElementById('lista-entregas-tabla');
+            tbody.innerHTML = entregasDia.length ? entregasDia.map(e => {
+                const esEntregado = e.estado === 'entregado';
+                const badge = esEntregado ? '<span class="bg-green-100 text-green-800 text-[10px] px-2 py-1 rounded font-bold uppercase">Entregado</span>' : '<span class="bg-orange-100 text-orange-800 text-[10px] px-2 py-1 rounded font-bold uppercase animate-pulse">Pendiente</span>';
+                const textoDetalles = e.detalles.map(d => d.texto).join(' <br> ');
+
+                return `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100 ${esEntregado ? 'opacity-60' : ''}">
+                    <td class="py-4 px-4 text-xs text-gray-900 font-bold">${e.hora}</td>
+                    <td class="py-4 px-4 font-bold text-gray-900">${e.cliente}<br><span class="text-[10px] text-gray-500 font-normal">Vend: ${e.vendedor || '-'}</span></td>
+                    <td class="py-4 px-4 text-xs font-mono text-gray-700">${textoDetalles}</td>
+                    <td class="py-4 px-4 text-center">${badge}</td>
+                    <td class="py-4 px-4 text-center">
+                        <button onclick="generarRemitoEntrega('${e.id}')" class="bg-brand-primary hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-lg shadow-sm transition text-xs flex items-center justify-center w-full">
+                            <i class="fas fa-print mr-2"></i> Imprimir Remito
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="5" class="py-10 text-center text-gray-500 font-bold">No hay entregas pendientes para esta fecha.</td></tr>';
+        }
+
+        function generarRemitoEntrega(id) {
+            const e = db.entregas.find(x => x.id === id);
+            if(!e) return;
+
+            imprimirRemito(e.detalles, e.monto, e.cliente, e.metodoPago, e.fecha, e.hora, e.vendedor || 'N/A');
+            
+            e.estado = 'entregado';
+            guardarBD();
+            renderEntregas();
+        }
+
+        function imprimirRemito(detalles, total, cliente, metodo, fecha, hora, vendedor) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const nombreEmpresa = db.config.nombreEmpresa || 'Depósito';
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.text(nombreEmpresa, 105, 20, null, null, "center");
+            
+            doc.setFontSize(14);
+            doc.text("REMITO / COMPROBANTE DE ENTREGA", 105, 30, null, null, "center");
+            
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Fecha: ${fecha}  Hora: ${hora}`, 20, 45);
+            doc.text(`Cliente: ${cliente}`, 20, 52);
+            doc.text(`Medio de Pago: ${metodo}`, 20, 59);
+            doc.text(`Vendedor: ${vendedor}`, 20, 66);
+            
+            doc.line(20, 72, 190, 72);
+            
+            doc.setFont("helvetica", "bold");
+            doc.text("CANT.   PRODUCTO", 20, 79);
+            doc.line(20, 82, 190, 82);
+            
+            doc.setFont("helvetica", "normal");
+            let y = 92;
+            detalles.forEach(d => {
+                doc.text(d.texto, 20, y);
+                y += 10;
+            });
+            
+            doc.line(20, y, 190, y);
+            y += 10;
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.text("MERCADERÍA ENTREGADA Y CONTROLADA", 105, y, null, null, "center");
+            
+            y += 30;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text("Firma de Conformidad: ___________________________", 20, y);
+            
+            window.open(URL.createObjectURL(doc.output("blob")));
+        }
+
+        // --- CAJA DIARIA ---
+        function renderCaja() {
+            const fecha = document.getElementById('fecha-caja').value;
+            const movs = db.caja.filter(m => m.fecha === fecha).reverse();
+            
+            let totalEfectivo = 0, totalMP = 0, totalTransf = 0;
+            let totalVentasIngresos = 0, totalEgresos = 0;
+
+            const tbody = document.getElementById('lista-caja-tabla');
+            tbody.innerHTML = movs.length ? movs.map(m => {
+                const esIngreso = (m.tipo === 'venta' || m.tipo === 'ingreso');
+                
+                if(esIngreso) {
+                    totalVentasIngresos += m.monto;
+                    if(m.metodo === 'Mercado Pago') totalMP += m.monto;
+                    else if(m.metodo === 'Transferencia') totalTransf += m.monto;
+                    else totalEfectivo += m.monto; 
+                } else {
+                    totalEgresos += m.monto;
+                    if(m.metodo === 'Mercado Pago') totalMP -= m.monto;
+                    else if(m.metodo === 'Transferencia') totalTransf -= m.monto;
+                    else totalEfectivo -= m.monto;
+                }
+                
+                const colorTexto = esIngreso ? 'text-green-600' : 'text-red-500';
+                const badge = m.tipo === 'venta' ? 'bg-blue-100 text-blue-800 border-blue-200' : 
+                              (esIngreso ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200');
+                
+                let iconMedio = '<i class="fas fa-money-bill-wave text-green-600"></i> Efvo';
+                if(m.metodo === 'Mercado Pago') iconMedio = '<i class="fas fa-mobile-screen text-blue-500"></i> MP';
+                if(m.metodo === 'Transferencia') iconMedio = '<i class="fas fa-building-columns text-purple-500"></i> Transf';
+
+                return `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                    <td class="py-3 px-4 text-xs text-gray-900 font-bold">${m.hora}</td>
+                    <td class="py-3 px-4"><span class="${badge} text-[10px] font-bold px-2 py-1 rounded uppercase border">${m.tipo}</span></td>
+                    <td class="py-3 px-4 font-bold text-gray-900 leading-tight">${m.concepto}<br><span class="text-[10px] font-normal text-gray-500">${m.cliente || m.detalle || ''}</span></td>
+                    <td class="py-3 px-4 text-xs font-bold whitespace-nowrap">${iconMedio}</td>
+                    <td class="py-3 px-4 font-bold ${colorTexto} text-right text-base">${esIngreso?'+':'-'}$${m.monto.toLocaleString('es-AR', {maximumFractionDigits:0})}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="borrarMovimiento('${m.id}')" class="admin-only text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="6" class="py-10 text-center text-gray-500 font-bold">No hay movimientos para esta fecha.</td></tr>';
+
+            document.getElementById('caja-tot-efectivo').innerText = '$ ' + totalEfectivo.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('caja-tot-mp').innerText = '$ ' + totalMP.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('caja-tot-transf').innerText = '$ ' + totalTransf.toLocaleString('es-AR', {maximumFractionDigits:0});
+            
+            document.getElementById('caja-tot-global').innerText = '$ ' + totalVentasIngresos.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('caja-tot-egresos').innerText = `Egresos totales: $${totalEgresos.toLocaleString('es-AR', {maximumFractionDigits:0})}`;
+        }
+
+        // --- RENTABILIDAD AVANZADA ---
+        function renderRentabilidad() {
+            if(appLocked) return;
+
+            const mesStr = document.getElementById('filtro-mes-rentabilidad').value; 
+            if(!mesStr) return;
+
+            let tIngresos = 0;
+            let tCostoMercaderia = 0;
+            let tGastosVariables = 0;
+            let tOtrosIngresos = 0;
+
+            db.caja.forEach(m => {
+                if(m.fecha.startsWith(mesStr)) {
+                    if(m.tipo === 'venta') {
+                        tIngresos += m.monto;
+                        tCostoMercaderia += (m.costoAsociado || 0);
+                        tGastosVariables += (m.costoVariableAsociado || 0);
+                    } else if (m.tipo === 'ingreso') {
+                        tOtrosIngresos += m.monto; 
+                    } else if (m.tipo === 'gasto') {
+                        tGastosVariables += m.monto; 
+                    }
+                }
+            });
+
+            const gastosFijosMes = db.gastosFijos.filter(g => g.mes === mesStr);
+            const tGastosFijos = gastosFijosMes.reduce((acc, g) => acc + g.monto, 0);
+
+            const ingresosTotales = tIngresos + tOtrosIngresos;
+            const margenContribucion = tIngresos - tCostoMercaderia - tGastosVariables;
+            const gananciaNeta = margenContribucion + tOtrosIngresos - tGastosFijos; 
+            const margenReal = ingresosTotales > 0 ? ((gananciaNeta / ingresosTotales) * 100).toFixed(1) : 0;
+
+            document.getElementById('rent-ingresos').innerText = '$ ' + ingresosTotales.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('rent-costos').innerText = '$ ' + tCostoMercaderia.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('rent-gastos-variables').innerText = '$ ' + tGastosVariables.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('rent-contribucion').innerText = '$ ' + margenContribucion.toLocaleString('es-AR', {maximumFractionDigits:0});
+            
+            document.getElementById('rent-neta').innerText = '$ ' + gananciaNeta.toLocaleString('es-AR', {maximumFractionDigits:0});
+            document.getElementById('rent-margen').innerText = `Margen Real: ${margenReal}%`;
+
+            const cardNeta = document.getElementById('rent-card-neta');
+            if(gananciaNeta >= 0) {
+                cardNeta.classList.remove('bg-brand-dark', 'bg-red-600');
+                cardNeta.classList.add('bg-green-600');
+                document.getElementById('rent-neta-label').innerText = "RESULTADO NETO (GANANCIA)";
+            } else {
+                cardNeta.classList.remove('bg-brand-dark', 'bg-green-600');
+                cardNeta.classList.add('bg-red-600');
+                document.getElementById('rent-neta-label').innerText = "RESULTADO NETO (PÉRDIDA)";
+            }
+
+            const listaGF = document.getElementById('lista-gastos-fijos');
+            listaGF.innerHTML = gastosFijosMes.length ? gastosFijosMes.map(g => `
+                <div class="flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <span class="font-bold text-slate-900 text-sm">${g.concepto}</span>
+                    <div class="flex gap-4 items-center">
+                        <span class="text-slate-600 font-bold">$${g.monto.toLocaleString('es-AR')}</span>
+                        <button onclick="borrarGastoFijo('${g.id}')" class="text-slate-400 hover:text-red-500"><i class="fas fa-trash text-xs"></i></button>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-xs text-slate-400 font-bold text-center mt-6">Sin gastos fijos registrados este mes.</p>';
+            
+            document.getElementById('rent-total-fijos-lbl').innerText = '$ ' + tGastosFijos.toLocaleString('es-AR');
+        }
+
+        function guardarGastoFijo() {
+            const mesStr = document.getElementById('filtro-mes-rentabilidad').value; 
+            const con = document.getElementById('gf-concepto').value.trim();
+            const mon = parseFloat(document.getElementById('gf-monto').value);
+
+            if(!mesStr || !con || isNaN(mon)) return mostrarToast('Completá el concepto y monto', 'bg-red-500');
+
+            db.gastosFijos.push({
+                id: generarId(),
+                mes: mesStr,
+                concepto: con,
+                monto: mon
+            });
+
+            document.getElementById('gf-concepto').value = '';
+            document.getElementById('gf-monto').value = '';
+            guardarBD();
+            renderRentabilidad();
+            mostrarToast('Gasto Fijo guardado', 'bg-green-600');
+        }
+
+        function borrarGastoFijo(id) {
+            pedirConfirmacion('¿Borrar este gasto fijo?', () => {
+                db.gastosFijos = db.gastosFijos.filter(g => g.id !== id);
+                guardarBD();
+                renderRentabilidad();
+            });
+        }
+    </script>
+</body>
+</html>
