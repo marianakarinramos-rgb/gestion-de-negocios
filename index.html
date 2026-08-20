@@ -36,7 +36,7 @@
         .fade-in { animation: fadeIn 0.4s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; } 
         ::-webkit-scrollbar-track { background: #0d1117; border-radius: 4px; }
         ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #00bfff; }
@@ -52,7 +52,6 @@
         .btn-excel { background-color: #10b981; color: #050b14; transition: 0.2s; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
         .btn-excel:hover { background-color: #34d399; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
         
-        /* Ajustes Dark Mode Globales */
         input, select, textarea {
             background-color: #0d1117 !important;
             border-color: #30363d !important;
@@ -82,6 +81,9 @@
         }
 
         .checkbox-masivo { width: 18px; height: 18px; accent-color: #00bfff; cursor: pointer; }
+
+        .tab-link { padding-top: 8px !important; padding-bottom: 8px !important; margin-bottom: 2px !important; font-size: 0.85rem !important; }
+        .sidebar-section-title { margin-top: 10px !important; margin-bottom: 4px !important; }
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row">
@@ -92,65 +94,65 @@
         <button id="mobileSidebarToggle" class="text-[#00bfff] text-xl"><i class="fas fa-bars"></i></button>
     </div>
 
-    <!-- Sidebar Menu (Marca Blanca Integrada) -->
-    <aside class="w-full md:w-64 bg-[#0d1117] border-r border-[#30363d] flex flex-col shrink-0 shadow-2xl z-20 md:min-h-screen pt-14 md:pt-6 hidden md:flex absolute md:relative inset-0">
-        <div class="p-5 space-y-4 flex-1 flex flex-col">
+    <!-- Sidebar Menu -->
+    <aside class="w-full md:w-[240px] bg-[#0d1117] border-r border-[#30363d] flex flex-col shrink-0 shadow-2xl z-20 md:min-h-screen pt-14 md:pt-4 hidden md:flex absolute md:relative inset-0">
+        <div class="p-4 space-y-3 flex-1 flex flex-col overflow-hidden">
             
-            <div class="bg-[#161b22] p-4 rounded-xl border border-[#30363d] shadow-inner text-center">
-                <label class="cursor-pointer block mb-3 group relative w-max mx-auto">
-                    <img id="clientLogoPreview" src="https://via.placeholder.com/150/161b22/8b949e?text=Mi+Logo" class="w-14 h-14 object-cover rounded-xl border-2 border-[#30363d] group-hover:border-[#00bfff] transition duration-300" alt="Logo Cliente">
-                    <div class="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                        <span class="text-[9px] font-bold text-white uppercase tracking-wider">Subir</span>
+            <div class="bg-[#161b22] p-3 rounded-xl border border-[#30363d] shadow-inner text-center">
+                <label class="cursor-pointer block mb-2 group relative w-max mx-auto">
+                    <img id="clientLogoPreview" src="https://via.placeholder.com/150/161b22/8b949e?text=Mi+Logo" class="w-10 h-10 object-cover rounded-lg border border-[#30363d] group-hover:border-[#00bfff] transition duration-300" alt="Logo Cliente">
+                    <div class="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <span class="text-[8px] font-bold text-white uppercase tracking-wider">Subir</span>
                     </div>
                     <input type="file" id="clientLogoInput" accept="image/*" class="hidden" onchange="procesarLogoSidebar(event)">
                 </label>
-                <input type="text" id="nombreComercioSide" class="bg-transparent border-b border-[#30363d] font-bold text-sm focus:ring-0 w-full text-center text-white px-1 outline-none focus:border-[#00bfff] transition pb-1 placeholder-[#8b949e]" value="MI NEGOCIO" readonly>
+                <input type="text" id="nombreComercioSide" class="bg-transparent border-b border-[#30363d] font-bold text-xs focus:ring-0 w-full text-center text-white px-1 outline-none focus:border-[#00bfff] transition pb-1 placeholder-[#8b949e]" value="MI NEGOCIO" readonly>
             </div>
 
-            <nav id="mobile-menu" class="flex flex-col space-y-1 flex-1 mt-2 overflow-y-auto pr-2">
-                <div class="text-[9px] font-bold text-[#8b949e] uppercase tracking-widest mb-1 mt-2 px-2">Ventas y Operativa</div>
-                <a href="#" onclick="switchTab('tab-clientes', this)" class="tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-users w-6"></i> Clientes
-                </a>
-                <a href="#" onclick="switchTab('tab-pos', this)" class="tab-link active flex items-center px-4 py-2.5 text-[#050b14] bg-[#00bfff] rounded-xl font-bold shadow-[0_0_15px_rgba(0,191,255,0.3)] transition">
-                    <i class="fas fa-shopping-cart w-6"></i> Punto de Venta
-                </a>
-                <a href="#" onclick="switchTab('tab-presupuestos', this)" class="tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-file-invoice-dollar w-6"></i> Presupuestos
-                </a>
-                <a href="#" onclick="switchTab('tab-deposito', this)" class="tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-truck-ramp-box w-6"></i> Remitos y Entregas
-                </a>
-                <a href="#" onclick="switchTab('tab-stock', this)" class="tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-boxes w-6"></i> Stock y Precios
-                </a>
+            <nav id="mobile-menu" class="flex flex-col flex-1 overflow-y-auto pr-1">
                 
-                <div class="text-[9px] font-bold text-[#8b949e] uppercase tracking-widest mb-1 mt-4 px-2 admin-only">Administración</div>
-                <a href="#" onclick="switchTab('tab-caja', this)" class="admin-only tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-cash-register w-6"></i> Caja Diaria
-                </a>
-                <a href="#" onclick="switchTab('tab-precios', this)" class="admin-only tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-tags w-6"></i> Listas de Precios
-                </a>
-                <a href="#" onclick="switchTab('tab-rrhh', this)" class="admin-only tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-id-card-clip w-6"></i> RRHH y Sueldos
-                </a>
-                <a href="#" onclick="switchTab('tab-rentabilidad', this)" class="admin-only tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-chart-pie w-6"></i> Rentabilidad
-                </a>
-                <a href="#" onclick="switchTab('tab-config', this)" class="admin-only tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-cog w-6"></i> Configuración
+                <div class="text-[9px] font-bold text-[#10b981] uppercase tracking-widest px-2 sidebar-section-title">Primeros Pasos</div>
+                <a href="#" onclick="switchTab('tab-manual', this)" class="tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d] mb-2">
+                    <i class="fas fa-book-open w-5 text-[#10b981]"></i> Manual de Usuario
                 </a>
 
-                <!-- Acá está la solapa del MANUAL DE USUARIO agregada -->
-                <div class="text-[9px] font-bold text-[#8b949e] uppercase tracking-widest mb-1 mt-4 px-2">Ayuda</div>
-                <a href="#" onclick="switchTab('tab-manual', this)" class="tab-link flex items-center px-4 py-2.5 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-xl font-medium transition border border-transparent hover:border-[#30363d]">
-                    <i class="fas fa-book w-6 text-[#10b981]"></i> Manual de Usuario
+                <div class="text-[9px] font-bold text-[#8b949e] uppercase tracking-widest px-2 sidebar-section-title">Ventas y Operativa</div>
+                <a href="#" onclick="switchTab('tab-clientes', this)" class="tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-users w-5"></i> Clientes
+                </a>
+                <a href="#" onclick="switchTab('tab-pos', this)" class="tab-link active flex items-center px-3 text-[#050b14] bg-[#00bfff] rounded-lg font-bold shadow-[0_0_10px_rgba(0,191,255,0.3)] transition">
+                    <i class="fas fa-shopping-cart w-5"></i> Punto de Venta
+                </a>
+                <a href="#" onclick="switchTab('tab-presupuestos', this)" class="tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-file-invoice-dollar w-5"></i> Presupuestos
+                </a>
+                <a href="#" onclick="switchTab('tab-deposito', this)" class="tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-truck-ramp-box w-5"></i> Remitos y Entregas
+                </a>
+                <a href="#" onclick="switchTab('tab-stock', this)" class="tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-boxes w-5"></i> Stock y Precios
+                </a>
+                
+                <div class="text-[9px] font-bold text-[#8b949e] uppercase tracking-widest px-2 sidebar-section-title admin-only">Administración</div>
+                <a href="#" onclick="switchTab('tab-caja', this)" class="admin-only tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-cash-register w-5"></i> Caja Diaria
+                </a>
+                <a href="#" onclick="switchTab('tab-precios', this)" class="admin-only tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-tags w-5"></i> Listas de Precios
+                </a>
+                <a href="#" onclick="switchTab('tab-rrhh', this)" class="admin-only tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-id-card-clip w-5"></i> RRHH y Sueldos
+                </a>
+                <a href="#" onclick="switchTab('tab-rentabilidad', this)" class="admin-only tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-chart-pie w-5"></i> Rentabilidad
+                </a>
+                <a href="#" onclick="switchTab('tab-config', this)" class="admin-only tab-link flex items-center px-3 text-[#8b949e] hover:bg-[#161b22] hover:text-white rounded-lg font-medium transition border border-transparent hover:border-[#30363d]">
+                    <i class="fas fa-cog w-5"></i> Configuración
                 </a>
             </nav>
 
-            <div class="mt-auto pt-4 border-t border-[#30363d]">
-                <button id="btn-lock" onclick="toggleLock()" class="w-full bg-[#161b22] border border-[#30363d] hover:bg-[#30363d] text-white py-2.5 rounded-xl font-bold transition flex items-center justify-center text-xs shadow-sm">
+            <div class="mt-2 pt-3 border-t border-[#30363d]">
+                <button id="btn-lock" onclick="toggleLock()" class="w-full bg-[#161b22] border border-[#30363d] hover:bg-[#30363d] text-white py-2 rounded-lg font-bold transition flex items-center justify-center text-xs shadow-sm">
                     <i class="fas fa-unlock mr-2 text-[#10b981]"></i> Modo Admin
                 </button>
             </div>
@@ -166,9 +168,9 @@
             </div>
         </div>
 
-        <div class="p-4 md:p-8 max-w-[1400px] mx-auto w-full pt-16 md:pt-8">
+        <div class="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto w-full pt-16 md:pt-6">
             
-            <div class="flex justify-end mb-6 w-full hidden md:flex">
+            <div class="flex justify-end mb-4 md:mb-6 w-full hidden md:flex">
                 <div class="flex items-center gap-3 bg-[#0d1117]/80 backdrop-blur px-4 py-2 rounded-xl border border-[#30363d] shadow-sm">
                     <div class="text-right">
                         <span class="block text-sm font-bold text-white">Gesto <span class="text-[#00bfff]">Smart</span></span>
@@ -183,64 +185,87 @@
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
                     <div>
                         <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">Manual de Usuario</h2>
-                        <p class="text-[#8b949e] text-sm">Guía operativa del sistema. Arquitectura directa y sin fricción.</p>
+                        <p class="text-[#8b949e] text-sm">Guía operativa completa del sistema.</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+                    
                     <!-- Configuración -->
-                    <div class="bg-[#161b22]/90 backdrop-blur p-6 rounded-2xl shadow-xl border border-[#30363d]">
-                        <div class="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#00bfff] flex items-center justify-center text-xl mb-4"><i class="fas fa-cog"></i></div>
-                        <h3 class="text-lg font-bold text-white mb-2">1. Configuración Inicial</h3>
-                        <p class="text-sm text-[#8b949e] mb-4">La base del sistema. Acá definís tu identidad y seguridad.</p>
-                        <ul class="space-y-2 text-sm text-[#c9d1d9]">
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i><strong>Marca Blanca:</strong> Subí tu logo y nombre. Se imprimirá en todos los PDFs y Remitos.</li>
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i><strong>Seguridad (PIN):</strong> Creá un PIN. Al activarlo, el sistema entra en "Modo Vendedor", ocultando costos, rentabilidad y bloqueando el borrado de datos.</li>
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#00bfff] flex items-center justify-center text-lg mb-3"><i class="fas fa-cog"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">1. Configuración</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">La base del sistema. Definí tu identidad y seguridad.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Marca Blanca:</strong> Subí tu logo para los PDFs.</li>
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>PIN Admin:</strong> Bloquea acceso a costos y rentabilidad.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Clientes -->
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#00bfff] flex items-center justify-center text-lg mb-3"><i class="fas fa-users"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">2. Clientes</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">Directorio e historial de compras.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Base:</strong> Alta manual o masiva por Excel.</li>
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Historial:</strong> Ver qué y cuándo compró cada cliente.</li>
                         </ul>
                     </div>
 
                     <!-- Importación -->
-                    <div class="bg-[#161b22]/90 backdrop-blur p-6 rounded-2xl shadow-xl border border-[#30363d]">
-                        <div class="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#10b981] flex items-center justify-center text-xl mb-4"><i class="fas fa-file-excel"></i></div>
-                        <h3 class="text-lg font-bold text-white mb-2">2. Carga de Datos</h3>
-                        <p class="text-sm text-[#8b949e] mb-4">Carga masiva para no perder tiempo tipiendo a mano.</p>
-                        <ul class="space-y-2 text-sm text-[#c9d1d9]">
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i><strong>Listas de Precios:</strong> Definí el margen de ganancia. El precio final se calcula solo multiplicando el Costo Base x Margen.</li>
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i><strong>Plantillas Excel:</strong> Descargá la plantilla, pegá tu inventario y subilo. Los datos se actualizan automáticamente.</li>
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#10b981] flex items-center justify-center text-lg mb-3"><i class="fas fa-file-excel"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">3. Carga de Datos</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">Carga masiva para no tipiar a mano.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Márgenes:</strong> El precio se calcula: Costo x Margen.</li>
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Plantillas:</strong> Subí tu Excel y actualizá stock/precios al instante.</li>
                         </ul>
                     </div>
 
                     <!-- Flujo de Venta -->
-                    <div class="bg-[#161b22]/90 backdrop-blur p-6 rounded-2xl shadow-xl border border-[#00bfff]/30">
-                        <div class="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#00bfff]/50 text-[#00bfff] flex items-center justify-center text-xl mb-4"><i class="fas fa-shopping-cart"></i></div>
-                        <h3 class="text-lg font-bold text-white mb-2">3. Flujo de Venta (Mostrador)</h3>
-                        <p class="text-sm text-[#8b949e] mb-4">La operativa diaria frente al cliente.</p>
-                        <ul class="space-y-2 text-sm text-[#c9d1d9]">
-                            <li><i class="fas fa-arrow-right text-[#00bfff] mr-2"></i>Armá el carrito en <strong>Punto de Venta</strong>.</li>
-                            <li><i class="fas fa-arrow-right text-[#00bfff] mr-2"></i>Si el cliente pide precio: <strong>Crear Presupuesto</strong> (descarga PDF).</li>
-                            <li><i class="fas fa-arrow-right text-[#00bfff] mr-2"></i>Si el cliente compra: <strong>Cobrar Directo</strong> (Impacta en caja y baja stock).</li>
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#00bfff]/30 flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#00bfff]/50 text-[#00bfff] flex items-center justify-center text-lg mb-3"><i class="fas fa-shopping-cart"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">4. Flujo de Venta (Mostrador)</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">La operativa diaria frente al cliente.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-arrow-right text-[#00bfff] mr-1"></i>Armá el carrito en <strong>Punto de Venta</strong>.</li>
+                            <li><i class="fas fa-arrow-right text-[#00bfff] mr-1"></i>Si pide precio: <strong>Crear Presupuesto</strong>.</li>
+                            <li><i class="fas fa-arrow-right text-[#00bfff] mr-1"></i>Si compra: <strong>Cobrar Directo</strong>.</li>
                         </ul>
                     </div>
 
                     <!-- Remitos -->
-                    <div class="bg-[#161b22]/90 backdrop-blur p-6 rounded-2xl shadow-xl border border-[#30363d]">
-                        <div class="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#f59e0b] flex items-center justify-center text-xl mb-4"><i class="fas fa-truck-ramp-box"></i></div>
-                        <h3 class="text-lg font-bold text-white mb-2">4. Remitos y Entregas</h3>
-                        <p class="text-sm text-[#8b949e] mb-4">Gestión de la mercadería cobrada.</p>
-                        <ul class="space-y-2 text-sm text-[#c9d1d9]">
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i>Toda venta cobrada cae acá como "Pendiente".</li>
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i>Al hacer clic en <strong>Imprimir Remito</strong>, se genera el comprobante de entrega y el estado pasa a "Entregado".</li>
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#f59e0b] flex items-center justify-center text-lg mb-3"><i class="fas fa-truck-ramp-box"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">5. Remitos</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">Gestión de la mercadería cobrada.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i>Toda venta cae como "Pendiente".</li>
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Imprimir Remito</strong> genera comprobante y marca "Entregado".</li>
                         </ul>
                     </div>
 
                     <!-- Caja y Rentabilidad -->
-                    <div class="bg-[#161b22]/90 backdrop-blur p-6 rounded-2xl shadow-xl border border-[#30363d]">
-                        <div class="w-12 h-12 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#a855f7] flex items-center justify-center text-xl mb-4"><i class="fas fa-chart-pie"></i></div>
-                        <h3 class="text-lg font-bold text-white mb-2">5. Caja y Rentabilidad</h3>
-                        <p class="text-sm text-[#8b949e] mb-4">El tablero financiero del dueño.</p>
-                        <ul class="space-y-2 text-sm text-[#c9d1d9]">
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i><strong>Caja Diaria:</strong> Registra automáticamente los cobros. Podés sumar gastos diarios manuales. Exportable a Excel.</li>
-                            <li><i class="fas fa-check text-[#10b981] mr-2"></i><strong>Rentabilidad:</strong> Cargá tus Gastos Fijos (alquiler, sueldos). El sistema calcula el Margen de Contribución y el <strong>Resultado Neto Limpio</strong>.</li>
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#a855f7] flex items-center justify-center text-lg mb-3"><i class="fas fa-chart-pie"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">6. Finanzas</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">El tablero del dueño.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Caja:</strong> Registra cobros y gastos.</li>
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Rentabilidad:</strong> Calcula el Margen Neto descontando Fijos.</li>
+                        </ul>
+                    </div>
+
+                    <!-- RRHH -->
+                    <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] flex flex-col">
+                        <div class="w-10 h-10 rounded-xl bg-[#0d1117] border border-[#30363d] text-[#ef4444] flex items-center justify-center text-lg mb-3"><i class="fas fa-id-card-clip"></i></div>
+                        <h3 class="text-base font-bold text-white mb-2">7. RRHH</h3>
+                        <p class="text-xs text-[#8b949e] mb-3 flex-grow">Gestión del personal.</p>
+                        <ul class="space-y-1 text-xs text-[#c9d1d9]">
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Recibos:</strong> Calcula liquidaciones y genera PDF.</li>
+                            <li><i class="fas fa-check text-[#10b981] mr-1"></i><strong>Comisiones:</strong> Automático sobre ventas.</li>
                         </ul>
                     </div>
                 </div>
@@ -248,47 +273,47 @@
 
             <!-- ================= TAB: PUNTO DE VENTA (POS) ================= -->
             <div id="tab-pos" class="tab-content fade-in">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
                     <div>
                         <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">Punto de Venta</h2>
                         <p class="text-[#8b949e] text-sm">Armá carritos para crear Presupuestos o cobrar ventas directas.</p>
                     </div>
                 </div>
 
-                <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#30363d] mb-6 flex flex-col md:flex-row gap-4">
+                <div class="bg-[#161b22]/90 backdrop-blur p-4 rounded-2xl shadow-xl border border-[#30363d] mb-4 flex flex-col md:flex-row gap-4">
                     <div class="flex-1">
                         <label class="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest block mb-1"><i class="fas fa-user mr-1"></i> Cliente</label>
-                        <select id="pos-cliente" class="w-full border border-[#30363d] p-3 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]"></select>
+                        <select id="pos-cliente" class="w-full border border-[#30363d] p-2.5 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]"></select>
                     </div>
                     <div class="flex-1">
                         <label class="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest block mb-1"><i class="fas fa-id-badge mr-1"></i> Vendedor</label>
-                        <select id="pos-vendedor" class="w-full border border-[#30363d] p-3 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]"></select>
+                        <select id="pos-vendedor" class="w-full border border-[#30363d] p-2.5 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]"></select>
                     </div>
                 </div>
 
-                <div class="bg-[#161b22]/90 backdrop-blur p-6 rounded-3xl shadow-xl border border-[#00bfff]/20 mb-8 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-[#00bfff] text-[#050b14] text-[10px] font-bold px-4 py-1 rounded-bl-xl tracking-widest">CARRITO DE VENTAS</div>
+                <div class="bg-[#161b22]/90 backdrop-blur p-5 rounded-2xl shadow-xl border border-[#00bfff]/20 mb-8 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-[#00bfff] text-[#050b14] text-[9px] font-bold px-3 py-1 rounded-bl-xl tracking-widest">CARRITO</div>
                     
-                    <form onsubmit="agregarAlCarrito(event)" class="mt-4 border-b border-[#30363d] pb-4 mb-4">
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    <form onsubmit="agregarAlCarrito(event)" class="mt-2 border-b border-[#30363d] pb-4 mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                             <div class="md:col-span-2 relative">
                                 <label class="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest block mb-1">Producto (Buscador)</label>
                                 <div class="relative flex items-center">
                                     <i class="fas fa-search absolute left-3 text-[#8b949e]"></i>
-                                    <input type="text" id="pos-producto-nombre" list="dl-productos-pos" placeholder="Ej: Cocina, Sillón..." class="w-full border border-[#30363d] py-3 pl-9 pr-3 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]" autocomplete="off" oninput="debouncedActualizarPrecioPos()" required>
+                                    <input type="text" id="pos-producto-nombre" list="dl-productos-pos" placeholder="Ej: Cocina, Sillón..." class="w-full border border-[#30363d] py-2.5 pl-9 pr-3 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]" autocomplete="off" oninput="debouncedActualizarPrecioPos()" required>
                                     <datalist id="dl-productos-pos"></datalist>
                                 </div>
                             </div>
                             <div>
                                 <label class="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest block mb-1">Lista</label>
-                                <select id="pos-lista" class="w-full border border-[#30363d] p-3 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]" required onchange="actualizarPrecioPos()"></select>
+                                <select id="pos-lista" class="w-full border border-[#30363d] p-2.5 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-white focus:border-[#00bfff]" required onchange="actualizarPrecioPos()"></select>
                             </div>
                             <div>
                                 <label class="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest block mb-1">Cantidad</label>
-                                <input type="number" id="pos-cantidad" min="1" step="1" value="1" class="w-full border border-[#30363d] p-3 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-center text-white focus:border-[#00bfff]" required oninput="actualizarPrecioPos()">
+                                <input type="number" id="pos-cantidad" min="1" step="1" value="1" class="w-full border border-[#30363d] p-2.5 rounded-xl bg-[#0d1117] outline-none text-sm font-bold text-center text-white focus:border-[#00bfff]" required oninput="actualizarPrecioPos()">
                             </div>
                             <div>
-                                <button type="submit" class="w-full bg-[#0d1117] text-[#00bfff] hover:bg-[#30363d] hover:text-white font-bold py-3 rounded-xl transition flex items-center justify-center border border-[#30363d]">
+                                <button type="submit" class="w-full bg-[#0d1117] text-[#00bfff] hover:bg-[#30363d] hover:text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center border border-[#30363d]">
                                     <i class="fas fa-cart-plus mr-2"></i> Añadir
                                 </button>
                             </div>
@@ -296,31 +321,30 @@
                     </form>
 
                     <div id="pos-carrito-container" class="mb-4 hidden">
-                        <h4 class="text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2 flex items-center"><i class="fas fa-shopping-basket mr-2"></i> Artículos en Carrito</h4>
                         <div class="border border-[#30363d] rounded-xl overflow-hidden mb-4 bg-[#0d1117]">
                             <table class="w-full text-left text-sm">
                                 <thead class="bg-[#161b22] text-[10px] text-[#8b949e] uppercase border-b border-[#30363d]">
-                                    <tr><th class="p-3">Cant.</th><th class="p-3">Producto</th><th class="p-3">Lista Base</th><th class="p-3 text-right">Subtotal</th><th class="p-3 text-center w-10"></th></tr>
+                                    <tr><th class="p-2.5">Cant.</th><th class="p-2.5">Producto</th><th class="p-2.5">Lista Base</th><th class="p-2.5 text-right">Subtotal</th><th class="p-2.5 text-center w-10"></th></tr>
                                 </thead>
                                 <tbody id="pos-carrito-tbody" class="divide-y divide-[#30363d]"></tbody>
                             </table>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-[#0d1117] p-4 rounded-xl border border-[#30363d]">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
                         <div class="md:col-span-1">
                             <label class="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest block mb-1 text-center">Total del Carrito</label>
-                            <div class="bg-[#161b22] p-3 rounded-xl text-center border border-[#30363d] shadow-inner">
+                            <div class="bg-[#161b22] p-2 rounded-xl text-center border border-[#30363d] shadow-inner">
                                 <span class="text-xl font-black text-[#10b981]" id="pos-total-preview">$0</span>
                             </div>
                         </div>
-                        <div class="md:col-span-1 mt-4 md:mt-0">
-                            <button onclick="guardarPresupuesto()" class="w-full bg-[#30363d] text-white font-bold py-4 rounded-xl shadow-md hover:bg-[#8b949e] hover:text-[#050b14] transition flex items-center justify-center border border-[#30363d]">
+                        <div class="md:col-span-1 mt-2 md:mt-0">
+                            <button onclick="guardarPresupuesto()" class="w-full bg-[#30363d] text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-[#8b949e] hover:text-[#050b14] transition flex items-center justify-center border border-[#30363d] text-sm">
                                 <i class="fas fa-file-invoice mr-2"></i> Crear Presupuesto
                             </button>
                         </div>
                         <div class="md:col-span-1 mt-2 md:mt-0">
-                            <button onclick="abrirModalCobroPos()" class="w-full bg-[#00bfff] text-[#050b14] font-bold py-4 rounded-xl shadow-[0_0_15px_rgba(0,191,255,0.4)] hover:bg-[#4dd2ff] transition flex items-center justify-center">
+                            <button onclick="abrirModalCobroPos()" class="w-full bg-[#00bfff] text-[#050b14] font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(0,191,255,0.4)] hover:bg-[#4dd2ff] transition flex items-center justify-center text-sm">
                                 <i class="fas fa-money-bill-wave mr-2"></i> Cobrar Directo
                             </button>
                         </div>
@@ -1088,7 +1112,9 @@
             } else {
                 desbloquearApp();
             }
-            actualizarUI();
+            
+            // Forzar pestaña Manual al cargar
+            switchTab('tab-manual', document.querySelector('.tab-link[onclick*="tab-manual"]'));
             cargarDesplegablesVendedores();
         });
 
@@ -1501,7 +1527,7 @@
         function guardarEmpleado() {
             const id = document.getElementById('emp-id').value; const nombre = document.getElementById('emp-nombre').value.trim(); const dni = document.getElementById('emp-dni').value.trim(); const ingreso = document.getElementById('emp-ingreso').value; const tel = document.getElementById('emp-tel').value.trim(); const telFamiliar = document.getElementById('emp-telfam').value.trim(); const modalidadPago = document.getElementById('emp-modalidad').value; const sueldoBase = parseFloat(document.getElementById('emp-sueldo').value) || 0;
             if(!nombre) return mostrarToast('El nombre es obligatorio', 'bg-[#ef4444]');
-            if(id) { const e = db.empleados.find(x => x.id === id); if(e) { e.nombre = nombre; e.dni = dni; e.fechaIngreso = ingreso; e.tel = tel; e.telFamiliar = telFamiliar; e.modalidadPago = modalidadPago; e.sueldoBase = sueldoBase; } } else { db.empleados.push({ id: generarId(), nombre, dni, fechaIngreso: ingreso, tel, telFamiliar, modalidadPago, sueldoBase }); }
+            if(id) { const e = db.empleados.find(x => x.id === id); if(e) { e.nombre = nombre; e.dni = dni; e.fechaIngreso = ingreso; e.tel = tel; e.telFamiliar = telFamiliar; e.modalidadPago = modalidadPago; e.sueldoBase = sueldoBase; } } else { db.empleados.push({ id: generarId(), nombre, dni, fechaIngreso: ingreso, tel, telFamiliar: telFam, modalidadPago: modalidad, sueldoBase: sueldo }); }
             guardarBD(); cerrarModal('modal-empleado'); actualizarUI(); cargarDesplegablesVendedores(); mostrarToast('Empleado guardado', 'bg-[#10b981]');
         }
         function borrarEmpleado(id) { pedirConfirmacion('¿Dar de baja a este empleado? (Se mantendrá en el historial)', () => { db.empleados = db.empleados.filter(x => x.id !== id); guardarBD(); actualizarUI(); cargarDesplegablesVendedores(); }); }
@@ -1612,13 +1638,18 @@
         function switchTab(tabId, el) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
             document.querySelectorAll('.tab-link').forEach(link => {
-                link.classList.remove('active', 'text-[#050b14]', 'bg-[#00bfff]', 'shadow-[0_0_15px_rgba(0,191,255,0.3)]', 'font-bold');
+                link.classList.remove('active', 'text-[#050b14]', 'bg-[#00bfff]', 'shadow-[0_0_10px_rgba(0,191,255,0.3)]', 'font-bold', 'text-white');
                 link.classList.add('text-[#8b949e]', 'hover:bg-[#161b22]', 'hover:text-white', 'font-medium');
             });
             document.getElementById(tabId).classList.remove('hidden');
             if(el) { 
                 el.classList.remove('text-[#8b949e]', 'hover:bg-[#161b22]', 'hover:text-white', 'font-medium'); 
-                el.classList.add('active', 'text-[#050b14]', 'bg-[#00bfff]', 'shadow-[0_0_15px_rgba(0,191,255,0.3)]', 'font-bold'); 
+                
+                if(tabId === 'tab-manual') {
+                    el.classList.add('active', 'text-white', 'font-bold');
+                } else {
+                    el.classList.add('active', 'text-[#050b14]', 'bg-[#00bfff]', 'shadow-[0_0_10px_rgba(0,191,255,0.3)]', 'font-bold'); 
+                }
             }
             if(window.innerWidth < 768) document.getElementById('mobile-menu').parentElement.classList.add('hidden');
             actualizarUI();
@@ -1838,11 +1869,11 @@
                 const subtotal = item.cant * item.precioUnitario; total += subtotal;
                 return `
                 <tr class="border-b border-[#30363d] hover:bg-[#1e293b]/50">
-                    <td class="p-3 font-bold text-center text-white">${item.cant}</td>
-                    <td class="p-3 text-white font-bold">${item.nombre}</td>
-                    <td class="p-3 text-xs text-[#8b949e] uppercase">${item.listaNombre}</td>
-                    <td class="p-3 text-right font-bold text-[#10b981]">$${subtotal.toLocaleString('es-AR', {maximumFractionDigits:0})}</td>
-                    <td class="p-3 text-center"><button type="button" onclick="eliminarDelCarrito('${item.id}')" class="text-[#ef4444] hover:text-red-400"><i class="fas fa-times"></i></button></td>
+                    <td class="p-2.5 font-bold text-center text-white">${item.cant}</td>
+                    <td class="p-2.5 text-white font-bold">${item.nombre}</td>
+                    <td class="p-2.5 text-xs text-[#8b949e] uppercase">${item.listaNombre}</td>
+                    <td class="p-2.5 text-right font-bold text-[#10b981]">$${subtotal.toLocaleString('es-AR', {maximumFractionDigits:0})}</td>
+                    <td class="p-2.5 text-center"><button type="button" onclick="eliminarDelCarrito('${item.id}')" class="text-[#ef4444] hover:text-red-400"><i class="fas fa-times"></i></button></td>
                 </tr>`;
             }).join('');
             totalPreview.innerText = '$' + total.toLocaleString('es-AR', {maximumFractionDigits:0});
